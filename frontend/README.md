@@ -30,7 +30,7 @@ Default dev URL: `http://localhost:3000`.
 
 | Variable | Purpose |
 |----------|---------|
-| `NEXT_PUBLIC_API_URL` | Base URL of the FastAPI backend. Defaults to `http://127.0.0.1:8000` in `lib/api.ts` when unset. |
+| `NEXT_PUBLIC_API_URL` | Base URL of the FastAPI backend. Defaults to `http://127.0.0.1:8000` in `src/lib/api.ts` when unset. |
 
 Create a local env file if you need overrides (for example `.env.local` — keep secrets out of git). See [Next.js Environment Variables](https://nextjs.org/docs/app/building-your-application/configuring/environment-variables).
 
@@ -50,7 +50,7 @@ Create a local env file if you need overrides (for example `.env.local` — keep
 
 ## Components (stubs)
 
-Under `components/`: `CaseInputForm`, `AgentStepViewer`, `ResultPanel`, `HistoryTable`, `FileUploader` — exported as minimal placeholders for upcoming UI work.
+Under `src/components/`: domain folders for `forms`, `dashboard`, `agents`, and `ui` provide minimal placeholders for upcoming UI work.
 
 ## Deploying on Vercel
 
@@ -62,4 +62,4 @@ Under `components/`: `CaseInputForm`, `AgentStepViewer`, `ResultPanel`, `History
 
 ## TypeScript and paths
 
-`tsconfig.json` maps `@/*` to the project root (for example `import { apiBaseUrl } from "@/lib/api"`).
+`tsconfig.json` maps `@/*` to `src/*` (for example `import { apiBaseUrl } from "@/lib/api"`).
