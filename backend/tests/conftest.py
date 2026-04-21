@@ -20,12 +20,13 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 # Import models first so they register with Base.metadata before any test creates tables.
-# This must come before `from app.main import app` to avoid the `app` name being rebound.
-import app.models.case as _models_case  # noqa: F401
+# This must come before `from src.main import app` to avoid the `app` name being rebound.
+import src.database.models as _models  # noqa: F401
 
-from app.main import app as fastapi_app
-from app.models.database import Base, get_db
-from app.schemas.analyze import (
+from src.main import app as fastapi_app
+from src.database.session import get_db
+from src.database.models import Base
+from src.schemas.ai_schemas import (
     Brief,
     DraftingResult,
     Entity,
@@ -36,7 +37,6 @@ from app.schemas.analyze import (
 )
 
 # ── Canonical mock outputs (stand-ins for real LLM responses) ─────────────────
-# These define the shape teammates can expect from each agent.
 
 MOCK_EXTRACTION = ExtractionResult(
     facts=[
@@ -162,7 +162,7 @@ async def client(tmp_path) -> AsyncGenerator[AsyncClient, None]:
 
     fastapi_app.dependency_overrides[get_db] = _override_get_db
 
-    with patch("app.main.init_db", new_callable=AsyncMock):
+    with patch("src.main.init_db", new_callable=AsyncMock):
         async with AsyncClient(
             transport=ASGITransport(app=fastapi_app), base_url="http://test"
         ) as ac:
@@ -182,23 +182,23 @@ def mock_agents():
     """
     with (
         patch(
-            "app.services.orchestrator.run_extraction_agent",
+            "src.agents.orchestrator.run_extraction_agent",
             new_callable=AsyncMock,
         ) as m_ext,
         patch(
-            "app.services.orchestrator.run_strategy_agent",
+            "src.agents.orchestrator.run_strategy_agent",
             new_callable=AsyncMock,
         ) as m_strat,
         patch(
-            "app.services.orchestrator.run_drafting_agent",
+            "src.agents.orchestrator.run_drafting_agent",
             new_callable=AsyncMock,
         ) as m_draft,
         patch(
-            "app.services.orchestrator.run_qa_agent",
+            "src.agents.orchestrator.run_qa_agent",
             new_callable=AsyncMock,
         ) as m_qa,
         patch(
-            "app.services.orchestrator.rag_retrieve",
+            "src.agents.orchestrator.rag_retrieve",
             new_callable=AsyncMock,
         ) as m_rag,
     ):

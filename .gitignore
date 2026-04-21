@@ -22,6 +22,9 @@ out/
 .env.*.local
 .DS_Store
 
+# Data artifacts
+data/vector_db/*
+
 # IDE
 .idea/
 .vscode/
