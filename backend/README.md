@@ -37,25 +37,28 @@ pip install -r requirements.txt
 ## Run the dev server
 
 ```bash
-uv run dev
+uv run uvicorn src.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
 This runs Uvicorn with reload on `http://127.0.0.1:8000`. Equivalent manual command:
 
 ```bash
-uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+uv run uvicorn src.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
 ## Project layout
 
 ```
 backend/
-├── app/
+├── src/
 │   ├── main.py              # FastAPI app + router registration
-│   ├── api/routers/         # Route modules (health, me, analyze, history)
-│   ├── core/                # Settings and shared config (placeholder)
-│   ├── models/              # Domain / DB models (placeholder)
-│   └── services/            # Business logic and agents (placeholder)
+│   ├── api/                 # Route modules and auth dependencies
+│   ├── core/                # Settings and security placeholders
+│   ├── database/            # SQLAlchemy engine + models
+│   ├── agents/              # Extraction/Strategy/Drafting/QA scaffolds
+│   ├── rag/                 # RAG ingestion/retriever/vector store stubs
+│   └── schemas/             # API + AI response models
+├── app/                     # Legacy scaffold kept temporarily for compatibility
 ├── pyproject.toml           # Project metadata and dependencies (uv)
 ├── requirements.txt         # Same dependencies for pip-based workflows
 └── uv.lock                  # Locked versions (uv)
