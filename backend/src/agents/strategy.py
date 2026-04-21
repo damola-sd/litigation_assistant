@@ -3,7 +3,7 @@ import json
 from openai import AsyncOpenAI
 
 from src.core.config import settings
-from src.schemas.ai_schemas import ExtractionResult, StrategyResult
+from src.schemas.ai_schemas import ExtractionResult, LegalArgument, StrategyResult
 
 _client = AsyncOpenAI(api_key=settings.openai_api_key)
 
@@ -13,11 +13,13 @@ Return valid JSON matching this exact schema:
 {
   "legal_issues": ["list of legal issues raised"],
   "applicable_laws": ["Act name and specific section"],
-  "arguments": ["arguments in favour of the client"],
+  "arguments": [
+    {"issue": "...", "applicable_kenyan_law": "...", "argument_summary": "..."}
+  ],
   "counterarguments": ["likely opposing arguments"],
   "legal_reasoning": "narrative explanation of the legal position"
 }
-Cite specific Kenyan statutes and case law where applicable."""
+Cite specific Kenyan statutes (e.g. Law of Contract Act Cap 23, Land Act No. 6 of 2012) and case law where applicable."""
 
 
 async def run_strategy_agent(
@@ -25,8 +27,10 @@ async def run_strategy_agent(
 ) -> StrategyResult:
     context_block = "\n".join(rag_context) if rag_context else "No precedents retrieved."
     user_content = (
-        f"Case facts:\n{json.dumps(extraction.model_dump(), indent=2)}\n\n"
-        f"Relevant precedents:\n{context_block}"
+        f"Core facts:\n{json.dumps(extraction.core_facts, indent=2)}\n\n"
+        f"Timeline:\n{json.dumps([t.model_dump() for t in extraction.chronological_timeline], indent=2)}\n\n"
+        f"Entities:\n{json.dumps([e.model_dump() for e in extraction.entities], indent=2)}\n\n"
+        f"Relevant Kenyan precedents:\n{context_block}"
     )
     response = await _client.chat.completions.create(
         model=settings.openai_model,
@@ -43,8 +47,7 @@ async def run_strategy_agent(
 
 def strategy_agent(state: dict) -> dict:
     import asyncio
-    from src.schemas.ai_schemas import ExtractionResult as ER
-    extraction = ER(**state["extraction"])
+    extraction = ExtractionResult(**state["extraction"])
     result = asyncio.get_event_loop().run_until_complete(run_strategy_agent(extraction, []))
     state["strategy"] = result.model_dump()
     return state

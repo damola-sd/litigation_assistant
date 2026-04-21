@@ -1,5 +1,5 @@
-from contextlib import asynccontextmanager
 from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -25,9 +25,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(routes_auth.router, prefix="/me", tags=["auth"])
-app.include_router(routes_analyze.router, tags=["analyze"])
-app.include_router(routes_cases.router, prefix="/history", tags=["history"])
+app.include_router(routes_analyze.router, prefix="/api/v1", tags=["analyze"])
+app.include_router(routes_cases.router, prefix="/api/v1/cases", tags=["cases"])
+app.include_router(routes_auth.router, prefix="/api/v1/me", tags=["auth"])
 
 
 @app.get("/health", tags=["health"])

@@ -7,19 +7,19 @@ from src.schemas.ai_schemas import ExtractionResult
 
 _client = AsyncOpenAI(api_key=settings.openai_api_key)
 
-_SYSTEM = """You are a Kenyan legal analyst. Extract structured information from the case description.
+_SYSTEM = """You are a Kenyan paralegal. Extract structured information from the case description.
 Return valid JSON matching this exact schema:
 {
-  "facts": ["list of key factual statements"],
+  "core_facts": ["list of key factual statements — no emotions, only legally relevant facts"],
   "entities": [{"name": "...", "type": "person|company|place|document", "role": "..."}],
-  "timeline": [{"date": "...", "event": "..."}]
+  "chronological_timeline": [{"date": "...", "event": "..."}]
 }
-Be precise and comprehensive. Include all legally relevant facts."""
+Exclude emotional language. Build a strict chronological timeline. Be precise and comprehensive."""
 
 
 async def run_extraction_agent(case_text: str) -> ExtractionResult:
     response = await _client.chat.completions.create(
-        model=settings.openai_model,
+        model="gpt-4o-mini",
         response_format={"type": "json_object"},
         messages=[
             {"role": "system", "content": _SYSTEM},
@@ -33,6 +33,6 @@ async def run_extraction_agent(case_text: str) -> ExtractionResult:
 
 def extraction_agent(state: dict) -> dict:
     import asyncio
-    result = asyncio.get_event_loop().run_until_complete(run_extraction_agent(state["case_text"]))
+    result = asyncio.get_event_loop().run_until_complete(run_extraction_agent(state["raw_text"]))
     state["extraction"] = result.model_dump()
     return state

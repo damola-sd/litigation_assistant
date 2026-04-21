@@ -13,37 +13,34 @@ class TimelineEvent(BaseModel):
 
 
 class ExtractionResult(BaseModel):
-    facts: list[str]
+    core_facts: list[str]
     entities: list[Entity]
-    timeline: list[TimelineEvent]
+    chronological_timeline: list[TimelineEvent]
+
+
+class LegalArgument(BaseModel):
+    issue: str
+    applicable_kenyan_law: str
+    argument_summary: str
 
 
 class StrategyResult(BaseModel):
     legal_issues: list[str]
     applicable_laws: list[str]
-    arguments: list[str]
+    arguments: list[LegalArgument]
     counterarguments: list[str]
     legal_reasoning: str
 
 
-class Brief(BaseModel):
-    facts: str
-    issues: list[str]
-    arguments: list[str]
-    counterarguments: list[str]
-    conclusion: str
-
-
 class DraftingResult(BaseModel):
-    brief: Brief
+    brief_markdown: str
 
 
 class QAResult(BaseModel):
-    is_grounded: bool
-    risk_level: str
-    risk_notes: list[str]
+    risk_level: str  # LOW, MEDIUM, HIGH
+    hallucination_warnings: list[str]
     missing_logic: list[str]
-    hallucination_flags: list[str]
+    risk_notes: list[str]
 
 
 class FinalBrief(BaseModel):

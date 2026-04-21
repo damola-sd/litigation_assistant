@@ -7,15 +7,14 @@ from src.schemas.ai_schemas import DraftingResult, ExtractionResult, QAResult
 
 _client = AsyncOpenAI(api_key=settings.openai_api_key)
 
-_SYSTEM = """You are a legal QA auditor. Review the drafted brief against the original facts and
-flag any grounding issues, hallucinations, or logical gaps.
+_SYSTEM = """You are a legal QA auditor. Review the drafted brief against the original facts.
+Identify any hallucinations (claims in the draft not supported by the source facts) or logical gaps.
 Return valid JSON matching this exact schema:
 {
-  "is_grounded": true,
-  "risk_level": "low|medium|high",
-  "risk_notes": ["list of risk observations"],
-  "missing_logic": ["list of logical gaps in the brief"],
-  "hallucination_flags": ["any claims not supported by the source facts"]
+  "risk_level": "LOW|MEDIUM|HIGH",
+  "hallucination_warnings": ["any claims not supported by the source facts"],
+  "missing_logic": ["logical gaps in the brief's arguments"],
+  "risk_notes": ["general risk observations"]
 }
 Be rigorous — this brief may be filed in court."""
 
@@ -25,11 +24,11 @@ async def run_qa_agent(
     draft: DraftingResult,
 ) -> QAResult:
     user_content = (
-        f"Source facts:\n{json.dumps(extraction.model_dump(), indent=2)}\n\n"
-        f"Draft brief:\n{json.dumps(draft.model_dump(), indent=2)}"
+        f"Source facts:\n{json.dumps(extraction.core_facts, indent=2)}\n\n"
+        f"Draft brief (markdown):\n{draft.brief_markdown}"
     )
     response = await _client.chat.completions.create(
-        model=settings.openai_model,
+        model="gpt-4o-mini",
         response_format={"type": "json_object"},
         messages=[
             {"role": "system", "content": _SYSTEM},
@@ -43,9 +42,8 @@ async def run_qa_agent(
 
 def qa_agent(state: dict) -> dict:
     import asyncio
-    from src.schemas.ai_schemas import ExtractionResult as ER, DraftingResult as DR
-    extraction = ER(**state["extraction"])
-    draft = DR(**state["draft"])
+    extraction = ExtractionResult(**state["extraction"])
+    draft = DraftingResult(**state["draft"])
     result = asyncio.get_event_loop().run_until_complete(run_qa_agent(extraction, draft))
     state["qa"] = result.model_dump()
     return state

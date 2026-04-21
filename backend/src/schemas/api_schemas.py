@@ -2,22 +2,15 @@ from datetime import datetime
 
 from pydantic import BaseModel, field_validator
 
-from src.schemas.ai_schemas import (
-    DraftingResult,
-    ExtractionResult,
-    QAResult,
-    StrategyResult,
-)
-
 
 class AnalyzeRequest(BaseModel):
-    case_text: str
+    raw_case_text: str
 
-    @field_validator("case_text")
+    @field_validator("raw_case_text")
     @classmethod
     def must_not_be_blank(cls, v: str) -> str:
         if not v.strip():
-            raise ValueError("case_text must not be blank")
+            raise ValueError("raw_case_text must not be blank")
         return v.strip()
 
 
@@ -35,7 +28,7 @@ class HistoryItem(BaseModel):
     model_config = {"from_attributes": True}
 
     id: str
-    case_text: str
+    raw_input: str
     status: str
     created_at: datetime
 
@@ -44,7 +37,7 @@ class HistoryDetail(BaseModel):
     model_config = {"from_attributes": True}
 
     id: str
-    case_text: str
+    raw_input: str
     status: str
     created_at: datetime
     steps: list[AgentStepOut]
