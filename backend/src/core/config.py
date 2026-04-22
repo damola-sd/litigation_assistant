@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     database_url: str = "sqlite+aiosqlite:///./litigation.db"
     openai_api_key: str = ""
     openrouter_api_key: str = ""
-    openai_model: str = "gpt-4o"
+    model: str = "gpt-4o"
     clerk_jwks_url: str = ""
     allowed_origins: list[str] = ["http://localhost:3000"]
     # Per-step wall-clock timeout in seconds.  Keeps a hung OpenAI call from

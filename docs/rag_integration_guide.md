@@ -603,7 +603,7 @@ cp backend/.env.example backend/.env
 Edit `backend/.env`:
 ```
 OPENAI_API_KEY=sk-...         ← your key from platform.openai.com
-OPENAI_MODEL=gpt-4o           ← leave as-is
+MODEL=gpt-4o           ← leave as-is
 DATABASE_URL=sqlite+aiosqlite:///./litigation.db   ← leave as-is for local dev
 ALLOWED_ORIGINS=["http://localhost:3000"]          ← leave as-is
 ```

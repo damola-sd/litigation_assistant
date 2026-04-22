@@ -32,11 +32,11 @@ async def run_drafting_agent(
         f"Legal strategy:\n{json.dumps(strategy.model_dump(), indent=2)}"
     )
 
-    logger.info("llm_call_start", agent="drafting", model=settings.openai_model)
+    logger.info("llm_call_start", agent="drafting", model=settings.model)
     start = time.monotonic()
 
     response = await client.chat.completions.create(
-        model=settings.openai_model,
+        model=settings.model,
         messages=[
             {"role": "system", "content": DRAFTING_PROMPT},
             {"role": "user", "content": user_content},
@@ -49,7 +49,7 @@ async def run_drafting_agent(
     logger.info(
         "llm_call_complete",
         agent="drafting",
-        model=settings.openai_model,
+        model=settings.model,
         duration_ms=duration_ms,
         prompt_tokens=usage.prompt_tokens if usage else None,
         completion_tokens=usage.completion_tokens if usage else None,

@@ -16,7 +16,7 @@ from src.schemas.ai_schemas import ExtractionResult, StrategyResult
 
 logger = get_logger(__name__)
 
-_MODEL_ENV_KEY = "openai_model"
+_MODEL_ENV_KEY = "model"
 
 
 def _build_user_content(extraction: ExtractionResult, rag_context: list[str]) -> str:
@@ -38,11 +38,11 @@ async def run_strategy_agent(
 
     client = instructor.from_async(get_async_client(), mode=instructor.Mode.JSON)  # type: ignore[attr-defined]
 
-    logger.info("llm_call_start", agent="strategy", model=settings.openai_model)
+    logger.info("llm_call_start", agent="strategy", model=settings.model)
     start = time.monotonic()
 
     result, completion = await client.chat.completions.create_with_completion(
-        model=settings.openai_model,
+        model=settings.model,
         response_model=StrategyResult,
         messages=[
             {"role": "system", "content": STRATEGY_PROMPT},
@@ -56,7 +56,7 @@ async def run_strategy_agent(
     logger.info(
         "llm_call_complete",
         agent="strategy",
-        model=settings.openai_model,
+        model=settings.model,
         duration_ms=duration_ms,
         prompt_tokens=usage.prompt_tokens if usage else None,
         completion_tokens=usage.completion_tokens if usage else None,
