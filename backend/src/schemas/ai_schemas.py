@@ -24,11 +24,16 @@ class LegalArgument(BaseModel):
     argument_summary: str
 
 
+class Counterargument(BaseModel):
+    rebutting_argument: str
+    counterargument: str
+
+
 class StrategyResult(BaseModel):
     legal_issues: list[str]
     applicable_laws: list[str]
     arguments: list[LegalArgument]
-    counterarguments: list[str]
+    counterarguments: list[Counterargument]
     legal_reasoning: str
 
 
