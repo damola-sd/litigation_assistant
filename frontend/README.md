@@ -38,15 +38,15 @@ Create a local env file if you need overrides (for example `.env.local` — keep
 
 | Route | Purpose |
 |-------|---------|
-| `/` | Landing placeholder |
-| `/pricing` | Pricing placeholder |
-| `/login` | Auth placeholder (Clerk intended) |
-| `/dashboard` | Dashboard home placeholder |
-| `/dashboard/new` | New case / input placeholder |
-| `/dashboard/history` | History list placeholder |
-| `/dashboard/case/[id]` | Case detail placeholder |
+| `/` | Public landing; signed-in users are sent to `/dashboard`. |
+| `/dashboard` | Authenticated home (overview + `HomeAppDetails`). |
+| `/dashboard/new-scan` | New case scan with streaming `POST /api/v1/analyze`. |
+| `/dashboard/scans` | Case list (`GET /api/v1/cases`). |
+| `/dashboard/scans/[id]` | Case detail with agent steps. |
+| `/subscriptions` | Plans / Clerk `PricingTable` + premium tools. |
+| `/public/*` | Marketing-style public routes (e.g. login, pricing redirect). |
 
-`middleware.ts` matches `/dashboard/*` for future Clerk protection; it currently passes all requests through.
+`src/proxy.ts` (Clerk middleware) controls auth at the edge; `/dashboard/*` is also gated in `dashboard/layout.tsx`.
 
 ## Components (stubs)
 

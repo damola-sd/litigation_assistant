@@ -11,7 +11,7 @@ Key production-readiness checks:
 import asyncio
 from datetime import datetime
 
-from tests.conftest import HEADERS_A, HEADERS_B, SAMPLE_CASE, collect_sse, run_analyze
+from tests.conftest import ANALYZE_FORM_BODY, HEADERS_A, HEADERS_B, SAMPLE_CASE, collect_sse, run_analyze
 
 EXPECTED_STEP_NAMES = ["extraction", "rag_retrieval", "strategy", "drafting", "qa"]
 
@@ -51,7 +51,7 @@ async def test_history_entry_status_is_completed(client, mock_agents):
 async def test_history_entry_has_required_fields(client, mock_agents):
     await run_analyze(client)
     item = (await client.get("/api/v1/cases", headers=HEADERS_A)).json()[0]
-    for field in ["id", "raw_input", "status", "created_at"]:
+    for field in ["id", "title", "raw_input", "status", "created_at"]:
         assert field in item, f"Missing field: {field}"
 
 
@@ -112,6 +112,40 @@ async def test_case_detail_returns_200(client, mock_agents):
     case_id = await run_analyze(client)
     r = await client.get(f"/api/v1/cases/{case_id}", headers=HEADERS_A)
     assert r.status_code == 200
+
+
+async def test_case_detail_includes_title(client, mock_agents):
+    case_id = await run_analyze(client)
+    detail = (await client.get(f"/api/v1/cases/{case_id}", headers=HEADERS_A)).json()
+    assert detail["title"] == ANALYZE_FORM_BODY["title"]
+
+
+async def test_list_cases_search_by_title_substring(client, mock_agents):
+    await run_analyze(client)
+    sub = ANALYZE_FORM_BODY["title"].split()[0]
+    r = await client.get("/api/v1/cases", params={"q": sub}, headers=HEADERS_A)
+    assert r.status_code == 200
+    assert len(r.json()) == 1
+
+
+async def test_list_cases_title_search_no_match_returns_empty(client, mock_agents):
+    await run_analyze(client)
+    r = await client.get("/api/v1/cases", params={"q": "ZZZZnonexistent"}, headers=HEADERS_A)
+    assert r.json() == []
+
+
+async def test_delete_case_returns_204_and_removes(client, mock_agents):
+    case_id = await run_analyze(client)
+    r = await client.delete(f"/api/v1/cases/{case_id}", headers=HEADERS_A)
+    assert r.status_code == 204
+    assert (await client.get("/api/v1/cases", headers=HEADERS_A)).json() == []
+
+
+async def test_delete_case_cross_user_returns_404(client, mock_agents):
+    case_id = await run_analyze(client, headers=HEADERS_A)
+    r = await client.delete(f"/api/v1/cases/{case_id}", headers=HEADERS_B)
+    assert r.status_code == 404
+    assert len((await client.get("/api/v1/cases", headers=HEADERS_A)).json()) == 1
 
 
 async def test_case_detail_nonexistent_id_returns_404(client):
@@ -175,7 +209,7 @@ async def test_case_detail_drafting_step_has_brief_markdown(client, mock_agents)
 async def test_failed_case_appears_in_history(client, mock_agents):
     mock_agents["extraction"].side_effect = RuntimeError("boom")
     async with client.stream(
-        "POST", "/api/v1/analyze", json={"raw_case_text": SAMPLE_CASE}, headers=HEADERS_A
+        "POST", "/api/v1/analyze", data=ANALYZE_FORM_BODY, headers=HEADERS_A
     ) as resp:
         await collect_sse(resp)
     history = (await client.get("/api/v1/cases", headers=HEADERS_A)).json()

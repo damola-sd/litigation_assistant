@@ -3,15 +3,27 @@ from datetime import datetime
 from pydantic import BaseModel, field_validator
 
 
-class AnalyzeRequest(BaseModel):
+class AnalyzePipelineInput(BaseModel):
+    """Validated payload passed to the agent pipeline after merging file + text."""
+
+    title: str
     raw_case_text: str
+
+    @field_validator("title")
+    @classmethod
+    def title_not_blank(cls, v: str) -> str:
+        t = v.strip()
+        if not t:
+            raise ValueError("title must not be blank")
+        return t
 
     @field_validator("raw_case_text")
     @classmethod
-    def must_not_be_blank(cls, v: str) -> str:
-        if not v.strip():
-            raise ValueError("raw_case_text must not be blank")
-        return v.strip()
+    def case_not_blank(cls, v: str) -> str:
+        t = (v or "").strip()
+        if not t:
+            raise ValueError("merged case text must not be blank")
+        return t
 
 
 class AgentStepOut(BaseModel):
@@ -28,6 +40,7 @@ class HistoryItem(BaseModel):
     model_config = {"from_attributes": True}
 
     id: str
+    title: str
     raw_input: str
     status: str
     created_at: datetime
@@ -37,6 +50,7 @@ class HistoryDetail(BaseModel):
     model_config = {"from_attributes": True}
 
     id: str
+    title: str
     raw_input: str
     status: str
     created_at: datetime

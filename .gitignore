@@ -21,6 +21,7 @@ out/
 .env
 .env.*.local
 .DS_Store
+frontend/.env.local
 
 # Data artifacts
 data/vector_db/*
