@@ -358,7 +358,7 @@ def ingest_documents(raw_dir, persist_dir, api_key=None):
     # 3. Embed all chunks with OpenAI text-embedding-3-small
     #    Embedding = a list of 1536 numbers that captures the "meaning" of text.
     #    Similar texts have embeddings that are close together in vector space.
-    openai_client = OpenAI(api_key=api_key)
+    openai_client = get_async_client()
     embeddings = []
     for i in range(0, len(all_docs), 256):   # batch to avoid rate limits
         batch = all_docs[i : i + 256]

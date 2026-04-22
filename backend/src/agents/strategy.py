@@ -36,7 +36,7 @@ async def run_strategy_agent(
     """Derive a legal strategy from extraction output and retrieved precedents."""
     from src.core.config import settings
 
-    client = instructor.from_async(get_async_client(), mode=instructor.Mode.JSON)  # type: ignore[attr-defined]
+    client = instructor.from_openai(get_async_client(), mode=instructor.Mode.JSON)
 
     logger.info("llm_call_start", agent="strategy", model=settings.model)
     start = time.monotonic()

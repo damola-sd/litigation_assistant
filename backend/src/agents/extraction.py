@@ -5,6 +5,7 @@ from raw case text using a structured output call via instructor.
 """
 
 import time
+from typing import Any, cast
 
 import instructor
 
@@ -29,7 +30,7 @@ async def run_extraction_agent(case_text: str) -> ExtractionResult:
     Uses instructor in JSON mode so the Pydantic schema is injected into the
     prompt automatically and malformed outputs are retried transparently.
     """
-    client = instructor.from_async(get_async_client(), mode=instructor.Mode.JSON)  # type: ignore[attr-defined]
+    client = instructor.from_openai(get_async_client(), mode=instructor.Mode.JSON)
 
     messages = [
         {"role": "system", "content": EXTRACTION_PROMPT},
@@ -52,7 +53,7 @@ async def run_extraction_agent(case_text: str) -> ExtractionResult:
     result, completion = await client.chat.completions.create_with_completion(
         model=_MODEL,
         response_model=ExtractionResult,
-        messages=messages,
+        messages=cast(Any, messages),
         temperature=0.1,
     )
 

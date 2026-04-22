@@ -6,13 +6,12 @@ Run once to build the index:
 Re-run whenever documents are added to data/raw/.
 """
 
+import asyncio
 import uuid
 from pathlib import Path
 
-from openai import OpenAI
-
-from src.core.config import settings
 from src.core.logging import configure_logging, get_logger
+from src.core.openai_client import get_async_client
 from src.rag.vector_store import DEFAULT_PERSIST_DIR, EMBED_MODEL, get_chroma_client, get_collection
 
 logger = get_logger(__name__)
@@ -41,16 +40,11 @@ def chunk_text(text: str, size: int = CHUNK_SIZE, overlap: int = CHUNK_OVERLAP) 
     return chunks
 
 
-def ingest_documents(
+async def _ingest_documents_async(
     raw_dir: Path = RAW_DIR,
     persist_dir: str = DEFAULT_PERSIST_DIR,
-    api_key: str | None = None,
 ) -> dict:
-    """Load all .txt and .md files from raw_dir, chunk, embed, and store in ChromaDB.
-
-    Returns a summary dict with 'detail' and 'chunks_added'.
-    """
-    resolved_key = api_key or settings.openai_api_key
+    """Async implementation: embed via ``AsyncOpenAI`` and write to Chroma."""
     txt_files = sorted(raw_dir.glob("*.txt")) + sorted(raw_dir.glob("*.md"))
 
     if not txt_files:
@@ -83,11 +77,11 @@ def ingest_documents(
         model=EMBED_MODEL,
     )
 
-    openai_client = OpenAI(api_key=resolved_key)
+    client = get_async_client()
     embeddings: list[list[float]] = []
     for i in range(0, len(all_docs), _EMBED_BATCH_SIZE):
         batch = all_docs[i : i + _EMBED_BATCH_SIZE]
-        resp = openai_client.embeddings.create(model=EMBED_MODEL, input=batch)
+        resp = await client.embeddings.create(model=EMBED_MODEL, input=batch)
         embeddings.extend(item.embedding for item in resp.data)
         logger.info(
             "ingestion_embed_batch_complete",
@@ -101,6 +95,18 @@ def ingest_documents(
 
     logger.info("ingestion_complete", chunks_added=len(all_docs), persist_dir=persist_dir)
     return {"detail": "ok", "chunks_added": len(all_docs)}
+
+
+def ingest_documents(
+    raw_dir: Path = RAW_DIR,
+    persist_dir: str = DEFAULT_PERSIST_DIR,
+) -> dict:
+    """Load all .txt and .md files from raw_dir, chunk, embed, and store in ChromaDB.
+
+    Synchronous entry point for scripts and tests; runs the async pipeline with
+    ``asyncio.run``.
+    """
+    return asyncio.run(_ingest_documents_async(raw_dir=raw_dir, persist_dir=persist_dir))
 
 
 if __name__ == "__main__":

@@ -24,7 +24,7 @@ async def run_qa_agent(
     draft: DraftingResult,
 ) -> QAResult:
     """Audit a drafted brief against the source facts and return a structured risk report."""
-    client = instructor.from_async(get_async_client(), mode=instructor.Mode.JSON)  # type: ignore[attr-defined]
+    client = instructor.from_openai(get_async_client(), mode=instructor.Mode.JSON)
 
     user_content = (
         f"Source facts:\n{json.dumps(extraction.core_facts, indent=2)}\n\n"

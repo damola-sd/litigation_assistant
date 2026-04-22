@@ -31,3 +31,5 @@ data/vector_db/*
 .vscode/
 
 Backend_walkthrough.md
+
+backend/*.db
