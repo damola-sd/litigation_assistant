@@ -18,6 +18,27 @@ jobs:
         working-directory: backend
     steps:
       - uses: actions/checkout@v4
+
       - uses: astral-sh/setup-uv@v4
-      - run: uv sync
-      - run: uv run python -m compileall src
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Compile check
+        run: uv run python -m compileall src
+
+      - name: Lint (ruff)
+        run: uv run ruff check src tests
+
+      - name: Type check (mypy)
+        run: uv run mypy src --ignore-missing-imports
+
+      - name: Test with coverage
+        run: >
+          uv run pytest tests/
+          --cov=src
+          --cov-report=term-missing
+          --cov-fail-under=70
+          -q
+        env:
+          OPENAI_API_KEY: dummy-key-for-tests

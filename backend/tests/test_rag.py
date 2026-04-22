@@ -22,7 +22,6 @@ from src.rag.ingestion import CHUNK_OVERLAP, CHUNK_SIZE, chunk_text, ingest_docu
 from src.rag.retriever import rag_retrieve
 from tests.conftest import ANALYZE_FORM_BODY, HEADERS_A, collect_sse, run_analyze
 
-
 # ── 1. chunk_text ─────────────────────────────────────────────────────────────
 
 
@@ -246,16 +245,17 @@ def raw_dir_two_files(tmp_path: Path) -> Path:
     return tmp_path
 
 
-def _patch_ingest(raw_dir: Path, tmp_path: Path):
-    """Context manager set up for ingest_documents tests."""
+def _patch_ingest() -> tuple[MagicMock, MagicMock]:
+    """Build mocks for ingest_documents tests (async OpenAI client)."""
     mock_col = MagicMock()
-    mock_openai_instance = MagicMock()
-    # Return one embedding object per input text item
-    def _create_embeddings(model, input):  # noqa: A002
+    mock_client = MagicMock()
+
+    async def _create_embeddings(*args, model=None, input=None, **kwargs):  # noqa: A002
         n = len(input) if isinstance(input, list) else 1
         return MagicMock(data=[MagicMock(embedding=[0.1] * 1536) for _ in range(n)])
-    mock_openai_instance.embeddings.create.side_effect = _create_embeddings
-    return mock_col, mock_openai_instance
+
+    mock_client.embeddings.create = AsyncMock(side_effect=_create_embeddings)
+    return mock_col, mock_client
 
 
 def test_ingest_documents_empty_directory_returns_no_files_found(tmp_path: Path):
@@ -267,9 +267,9 @@ def test_ingest_documents_empty_directory_returns_no_files_found(tmp_path: Path)
 def test_ingest_documents_success_returns_ok_with_chunk_count(
     raw_dir_two_files: Path, tmp_path: Path
 ):
-    mock_col, mock_oi = _patch_ingest(raw_dir_two_files, tmp_path)
+    mock_col, mock_client = _patch_ingest()
     with (
-        patch("src.rag.ingestion.OpenAI", return_value=mock_oi),
+        patch("src.rag.ingestion.get_async_client", return_value=mock_client),
         patch("src.rag.ingestion.get_chroma_client"),
         patch("src.rag.ingestion.get_collection", return_value=mock_col),
     ):
@@ -281,9 +281,9 @@ def test_ingest_documents_success_returns_ok_with_chunk_count(
 def test_ingest_documents_calls_collection_add_exactly_once(
     raw_dir_two_files: Path, tmp_path: Path
 ):
-    mock_col, mock_oi = _patch_ingest(raw_dir_two_files, tmp_path)
+    mock_col, mock_client = _patch_ingest()
     with (
-        patch("src.rag.ingestion.OpenAI", return_value=mock_oi),
+        patch("src.rag.ingestion.get_async_client", return_value=mock_client),
         patch("src.rag.ingestion.get_chroma_client"),
         patch("src.rag.ingestion.get_collection", return_value=mock_col),
     ):
@@ -294,9 +294,9 @@ def test_ingest_documents_calls_collection_add_exactly_once(
 def test_ingest_documents_add_receives_matching_docs_ids_embeddings(
     raw_dir_two_files: Path, tmp_path: Path
 ):
-    mock_col, mock_oi = _patch_ingest(raw_dir_two_files, tmp_path)
+    mock_col, mock_client = _patch_ingest()
     with (
-        patch("src.rag.ingestion.OpenAI", return_value=mock_oi),
+        patch("src.rag.ingestion.get_async_client", return_value=mock_client),
         patch("src.rag.ingestion.get_chroma_client"),
         patch("src.rag.ingestion.get_collection", return_value=mock_col),
     ):
@@ -310,9 +310,9 @@ def test_ingest_documents_add_receives_matching_docs_ids_embeddings(
 
 
 def test_ingest_documents_chunk_ids_are_all_unique(raw_dir_two_files: Path, tmp_path: Path):
-    mock_col, mock_oi = _patch_ingest(raw_dir_two_files, tmp_path)
+    mock_col, mock_client = _patch_ingest()
     with (
-        patch("src.rag.ingestion.OpenAI", return_value=mock_oi),
+        patch("src.rag.ingestion.get_async_client", return_value=mock_client),
         patch("src.rag.ingestion.get_chroma_client"),
         patch("src.rag.ingestion.get_collection", return_value=mock_col),
     ):
@@ -324,9 +324,9 @@ def test_ingest_documents_chunk_ids_are_all_unique(raw_dir_two_files: Path, tmp_
 def test_ingest_documents_metadata_records_source_filename(
     raw_dir_two_files: Path, tmp_path: Path
 ):
-    mock_col, mock_oi = _patch_ingest(raw_dir_two_files, tmp_path)
+    mock_col, mock_client = _patch_ingest()
     with (
-        patch("src.rag.ingestion.OpenAI", return_value=mock_oi),
+        patch("src.rag.ingestion.get_async_client", return_value=mock_client),
         patch("src.rag.ingestion.get_chroma_client"),
         patch("src.rag.ingestion.get_collection", return_value=mock_col),
     ):
@@ -341,15 +341,17 @@ def test_ingest_documents_total_embeddings_match_chunks_embedded(
 ):
     """Number of embeddings requested from OpenAI must equal chunks_added."""
     embedded_count: list[int] = []
-    def _create(model, input):  # noqa: A002
+
+    async def _create(*args, model=None, input=None, **kwargs):  # noqa: A002
         n = len(input) if isinstance(input, list) else 1
         embedded_count.append(n)
         return MagicMock(data=[MagicMock(embedding=[0.1] * 1536) for _ in range(n)])
-    mock_oi = MagicMock()
-    mock_oi.embeddings.create.side_effect = _create
+
+    mock_client = MagicMock()
+    mock_client.embeddings.create = AsyncMock(side_effect=_create)
     mock_col = MagicMock()
     with (
-        patch("src.rag.ingestion.OpenAI", return_value=mock_oi),
+        patch("src.rag.ingestion.get_async_client", return_value=mock_client),
         patch("src.rag.ingestion.get_chroma_client"),
         patch("src.rag.ingestion.get_collection", return_value=mock_col),
     ):
@@ -360,12 +362,12 @@ def test_ingest_documents_total_embeddings_match_chunks_embedded(
 def test_ingest_documents_accepts_markdown_files(tmp_path: Path):
     (tmp_path / "notes.md").write_text("## Kenyan Employment Act\nKey provisions.\n" * 15)
     mock_col = MagicMock()
-    mock_oi = MagicMock()
-    mock_oi.embeddings.create.return_value = MagicMock(
-        data=[MagicMock(embedding=[0.1] * 1536)]
+    mock_client = MagicMock()
+    mock_client.embeddings.create = AsyncMock(
+        return_value=MagicMock(data=[MagicMock(embedding=[0.1] * 1536)])
     )
     with (
-        patch("src.rag.ingestion.OpenAI", return_value=mock_oi),
+        patch("src.rag.ingestion.get_async_client", return_value=mock_client),
         patch("src.rag.ingestion.get_chroma_client"),
         patch("src.rag.ingestion.get_collection", return_value=mock_col),
     ):

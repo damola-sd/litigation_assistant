@@ -479,7 +479,7 @@ All read from `backend/.env`. Copy `backend/.env.example` as a starting point.
 |----------|----------|---------|-------------|
 | `OPENAI_API_KEY` | Yes (live server) | `""` | OpenAI API key |
 | `DATABASE_URL` | No | `sqlite+aiosqlite:///./litigation.db` | Sodiq sets this to Postgres for prod |
-| `OPENAI_MODEL` | No | `gpt-4o` | Used for strategy + drafting agents |
+| `MODEL` | No | `gpt-4o` | Used for strategy + drafting agents |
 | `CLERK_JWKS_URL` | No | `""` | John sets this for JWT verification |
 | `ALLOWED_ORIGINS` | No | `["http://localhost:3000"]` | Comma-separated frontend URLs for CORS |
 | `APP_ENV` | No | `development` | |
