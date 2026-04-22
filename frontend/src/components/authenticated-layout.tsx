@@ -1,10 +1,15 @@
 "use client";
 
+import React from "react";
 import { SignedIn, SignedOut } from "@clerk/nextjs";
 
 import { AppShell } from "@/components/app-shell";
 
-export function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
+export function AuthenticatedLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <>
       <SignedOut>{children}</SignedOut>

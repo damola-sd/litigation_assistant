@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
@@ -27,7 +28,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </Link>
           <UserButton showName />
         </header>
-        <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-6">{children}</main>
+        <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-6">
+          {children}
+        </main>
       </div>
     </div>
   );
