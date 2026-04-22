@@ -70,9 +70,9 @@ backend/
 |--------|------|--------|
 | `GET` | `/health` | Liveness check (returns `{"status":"ok"}`). |
 | `GET` | `/me` | User profile from Clerk JWT (stub). |
-| `POST` | `/analyze` | Case input and agent pipeline (stub). |
-| `GET` | `/history` | List analyses for the user (stub). |
-| `GET` | `/history/{analysis_id}` | Single analysis with agent steps (stub). |
+| `POST` | `/api/v1/analyze` | Multipart form: `title` (required), `case_text` (optional), `case_file` (optional `.txt`/`.md`/`.pdf`). At least one of `case_text` or file body must yield text; file contents are appended after typed text. Returns SSE. |
+| `GET` | `/api/v1/cases` | List cases for the user. |
+| `GET` | `/api/v1/cases/{id}` | Single case with agent steps. |
 
 Interactive docs: `http://127.0.0.1:8000/docs` (Swagger UI) and `http://127.0.0.1:8000/redoc`.
 

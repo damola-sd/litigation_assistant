@@ -6,19 +6,31 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "eslint ."
   },
   "dependencies": {
-    "next": "^15.2.4",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "@clerk/nextjs": "^6.39.2",
+    "@microsoft/fetch-event-source": "^2.0.1",
+    "@tailwindcss/typography": "^0.5.19",
+    "next": "^16.2.3",
+    "react": "^19.2.4",
+    "react-datepicker": "^9.1.0",
+    "react-dom": "^19.2.4",
+    "react-markdown": "^10.1.0",
+    "remark-breaks": "^4.0.0",
+    "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
-    "@types/node": "^22.14.0",
-    "@types/react": "^19.1.0",
-    "@types/react-dom": "^19.1.0",
-    "eslint": "^9.24.0",
-    "eslint-config-next": "^15.2.4",
-    "typescript": "^5.8.3"
+    "@tailwindcss/postcss": "^4.2.4",
+    "@types/node": "^20.19.39",
+    "@types/react": "^19.2.14",
+    "@types/react-datepicker": "^6.2.0",
+    "@types/react-dom": "^19.2.3",
+    "autoprefixer": "^10.5.0",
+    "eslint": "^9.39.4",
+    "eslint-config-next": "^16.2.3",
+    "postcss": "^8.5.10",
+    "tailwindcss": "^4.2.4",
+    "typescript": "^5.9.3"
   }
 }

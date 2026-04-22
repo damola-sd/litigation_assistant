@@ -138,6 +138,8 @@ SAMPLE_CASE = (
     "John now seeks specific performance and damages."
 )
 
+ANALYZE_FORM_BODY = {"title": "John Kamau v. Sarah Wanjiru — land dispute", "case_text": SAMPLE_CASE}
+
 USER_A = "user-alice-001"
 USER_B = "user-bob-002"
 HEADERS_A = {"x-user-id": USER_A}
@@ -229,12 +231,14 @@ async def collect_sse(response) -> list[dict]:
 
 
 async def run_analyze(client: AsyncClient, headers: dict = HEADERS_A) -> str:
-    """Run the full pipeline and return the case_id from the final done event."""
+    """Run the full pipeline and return the case_id from the final complete event."""
     async with client.stream(
         "POST",
         "/api/v1/analyze",
-        json={"raw_case_text": SAMPLE_CASE},
+        data=ANALYZE_FORM_BODY,
         headers=headers,
     ) as resp:
         events = await collect_sse(resp)
-    return events[-1]["case_id"]
+    last = events[-1]
+    assert last.get("type") == "complete", last
+    return last["case_id"]
