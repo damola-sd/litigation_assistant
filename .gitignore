@@ -28,3 +28,5 @@ data/vector_db/*
 # IDE
 .idea/
 .vscode/
+
+Backend_walkthrough.md

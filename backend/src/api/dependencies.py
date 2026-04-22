@@ -1,16 +1,7 @@
-from fastapi import Depends, HTTPException, status
+from fastapi import Header
+
+from src.schemas.api_schemas import CurrentUser
 
 
-def require_user() -> dict[str, str]:
-    """
-    Placeholder for Clerk JWT validation dependency.
-    """
-    # TODO: validate bearer token and resolve Clerk user ID.
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Auth dependency not implemented",
-    )
-
-
-def get_current_user(user: dict[str, str] = Depends(require_user)) -> dict[str, str]:
-    return user
+async def get_current_user(x_user_id: str = Header(default="dev-user-001")) -> CurrentUser:
+    return CurrentUser(user_id=x_user_id)

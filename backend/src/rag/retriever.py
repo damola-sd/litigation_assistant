@@ -1,3 +1,3 @@
-def retrieve_context(_query: str) -> list[str]:
-    # TODO: fetch legal precedent snippets for strategy agent prompts.
+async def rag_retrieve(_query: str) -> list[str]:
+    # Amit's stub — returns empty list until vector store is wired
     return []
