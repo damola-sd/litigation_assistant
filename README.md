@@ -243,6 +243,32 @@ Re-run whenever you add documents to `data/raw/`.
 
 ---
 
+## Testing
+
+### Backend
+
+The backend test suite uses `pytest` with async support. All agents, the LLM, and the database are mocked — tests run instantly with zero API cost.
+
+```bash
+cd backend
+uv run pytest             # run all tests
+uv run pytest -v          # verbose — show each test name
+uv run pytest -x          # stop on first failure
+uv run pytest --tb=short  # concise failure tracebacks
+```
+
+**Test coverage:**
+
+| File | What it covers |
+|------|---------------|
+| `tests/test_health.py` | `GET /health` liveness check |
+| `tests/test_me.py` | `GET /me` user identity endpoint |
+| `tests/test_analyze.py` | `POST /analyze` — full SSE pipeline, input validation, per-agent output shapes, error handling |
+| `tests/test_history.py` | `GET /cases` + `GET /cases/{id}` — history, user isolation, detail retrieval |
+| `tests/test_schemas.py` | AI Pydantic schema unit tests — model validation and serialisation |
+
+---
+
 ## API Reference
 
 | Method | Endpoint | Auth | Description |
