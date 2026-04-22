@@ -9,9 +9,14 @@ SSE event shape reference:
 
 import uuid
 
-import pytest
-
-from tests.conftest import ANALYZE_FORM_BODY, HEADERS_A, SAMPLE_CASE, collect_sse, run_analyze
+from tests.conftest import (
+    ANALYZE_FORM_BODY,
+    HEADERS_A,
+    HEADERS_B,
+    SAMPLE_CASE,
+    collect_sse,
+    run_analyze,
+)
 
 EXPECTED_SECTION_IDS = [
     "extraction",
@@ -211,38 +216,29 @@ async def test_strategy_markdown_contains_issues_and_laws(client, mock_agents):
     assert "Law of Contract Act" in md
 
 
-async def test_strategy_counterarguments_are_structured_objects(client, mock_agents):
-    """Each counterargument must be a dict with rebutting_argument and counterargument keys."""
+async def test_strategy_counterarguments_rendered_in_markdown(client, mock_agents):
+    """Strategy markdown must contain both the rebutting_argument and counterargument text."""
     async with client.stream(
-        "POST", "/api/v1/analyze", json={"raw_case_text": SAMPLE_CASE}, headers=HEADERS_A
+        "POST", "/api/v1/analyze", data=ANALYZE_FORM_BODY, headers=HEADERS_A
     ) as resp:
         events = await collect_sse(resp)
-    data = next(
-        e["data"] for e in events if e.get("step") == "strategy" and e.get("status") == "completed"
-    )
-    assert isinstance(data["counterarguments"], list)
-    for item in data["counterarguments"]:
-        assert isinstance(item, dict), "Each counterargument must be a dict"
-        assert "rebutting_argument" in item, "Missing rebutting_argument key"
-        assert "counterargument" in item, "Missing counterargument key"
-        assert isinstance(item["rebutting_argument"], str) and item["rebutting_argument"]
-        assert isinstance(item["counterargument"], str) and item["counterargument"]
+    strat = next(e for e in _markdown_sections(events) if e["section_id"] == "strategy")
+    md = strat["markdown"]
+    assert "### Counterarguments" in md
+    assert "Validity of contract" in md
+    assert "void" in md.lower()
 
 
-async def test_strategy_arguments_are_structured_objects(client, mock_agents):
-    """Each argument must be a dict with issue, applicable_kenyan_law, and argument_summary."""
+async def test_strategy_arguments_rendered_in_markdown(client, mock_agents):
+    """Strategy markdown must contain structured argument summaries."""
     async with client.stream(
-        "POST", "/api/v1/analyze", json={"raw_case_text": SAMPLE_CASE}, headers=HEADERS_A
+        "POST", "/api/v1/analyze", data=ANALYZE_FORM_BODY, headers=HEADERS_A
     ) as resp:
         events = await collect_sse(resp)
-    data = next(
-        e["data"] for e in events if e.get("step") == "strategy" and e.get("status") == "completed"
-    )
-    assert isinstance(data["arguments"], list) and len(data["arguments"]) > 0
-    for arg in data["arguments"]:
-        assert isinstance(arg, dict)
-        for key in ["issue", "applicable_kenyan_law", "argument_summary"]:
-            assert key in arg, f"Argument missing key: {key}"
+    strat = next(e for e in _markdown_sections(events) if e["section_id"] == "strategy")
+    md = strat["markdown"]
+    assert "### Arguments" in md
+    assert "Law of Contract Act" in md
 
 
 async def test_drafting_result_has_brief_markdown(client, mock_agents):
@@ -255,15 +251,13 @@ async def test_drafting_result_has_brief_markdown(client, mock_agents):
 
 
 async def test_drafting_brief_contains_required_sections(client, mock_agents):
-    """The brief must include all sections mandated by the improved drafting prompt."""
+    """The brief markdown event must include all sections mandated by the drafting prompt."""
     async with client.stream(
-        "POST", "/api/v1/analyze", json={"raw_case_text": SAMPLE_CASE}, headers=HEADERS_A
+        "POST", "/api/v1/analyze", data=ANALYZE_FORM_BODY, headers=HEADERS_A
     ) as resp:
         events = await collect_sse(resp)
-    data = next(
-        e["data"] for e in events if e.get("step") == "drafting" and e.get("status") == "completed"
-    )
-    brief = data["brief_markdown"]
+    draft = next(e for e in _markdown_sections(events) if e["section_id"] == "drafting")
+    brief = draft["markdown"]
     for section in [
         "## FACTS",
         "## ISSUES FOR DETERMINATION",
@@ -284,49 +278,38 @@ async def test_qa_result_has_required_keys(client, mock_agents):
 
 
 async def test_qa_result_has_all_output_fields(client, mock_agents):
-    """QA result must include all four fields defined by the improved QA prompt schema."""
+    """QA markdown event must contain fields defined by the QA schema."""
     async with client.stream(
-        "POST", "/api/v1/analyze", json={"raw_case_text": SAMPLE_CASE}, headers=HEADERS_A
+        "POST", "/api/v1/analyze", data=ANALYZE_FORM_BODY, headers=HEADERS_A
     ) as resp:
         events = await collect_sse(resp)
-    data = next(
-        e["data"] for e in events if e.get("step") == "qa" and e.get("status") == "completed"
-    )
-    for key in ["risk_level", "hallucination_warnings", "missing_logic", "risk_notes"]:
-        assert key in data, f"QA result missing key: {key}"
-    assert isinstance(data["missing_logic"], list)
-    assert isinstance(data["risk_notes"], list)
+    qa = next(e for e in _markdown_sections(events) if e["section_id"] == "qa")
+    md = qa["markdown"]
+    assert "### Hallucination warnings" in md
+    assert "### Missing logic" in md
+    assert "### Risk notes" in md
 
 
-async def test_extraction_entities_have_name_type_role(client, mock_agents):
-    """Every entity extracted must have name, type, and role per the improved extraction prompt."""
+async def test_extraction_markdown_entities_contain_name(client, mock_agents):
+    """Extraction markdown must list the entity names from the mock output."""
     async with client.stream(
-        "POST", "/api/v1/analyze", json={"raw_case_text": SAMPLE_CASE}, headers=HEADERS_A
+        "POST", "/api/v1/analyze", data=ANALYZE_FORM_BODY, headers=HEADERS_A
     ) as resp:
         events = await collect_sse(resp)
-    data = next(
-        e["data"] for e in events if e.get("step") == "extraction" and e.get("status") == "completed"
-    )
-    for entity in data["entities"]:
-        assert isinstance(entity, dict)
-        for field in ["name", "type", "role"]:
-            assert field in entity, f"Entity missing field: {field}"
-            assert isinstance(entity[field], str) and entity[field]
+    ext = next(e for e in _markdown_sections(events) if e["section_id"] == "extraction")
+    md = ext["markdown"]
+    assert "John Kamau" in md
+    assert "Sarah Wanjiru" in md
 
 
-async def test_extraction_timeline_events_have_date_and_event(client, mock_agents):
-    """Every timeline entry must have date and event keys."""
+async def test_extraction_markdown_timeline_present(client, mock_agents):
+    """Extraction markdown must include a chronological timeline section."""
     async with client.stream(
-        "POST", "/api/v1/analyze", json={"raw_case_text": SAMPLE_CASE}, headers=HEADERS_A
+        "POST", "/api/v1/analyze", data=ANALYZE_FORM_BODY, headers=HEADERS_A
     ) as resp:
         events = await collect_sse(resp)
-    data = next(
-        e["data"] for e in events if e.get("step") == "extraction" and e.get("status") == "completed"
-    )
-    for entry in data["chronological_timeline"]:
-        assert isinstance(entry, dict)
-        assert "date" in entry and isinstance(entry["date"], str) and entry["date"]
-        assert "event" in entry and isinstance(entry["event"], str) and entry["event"]
+    ext = next(e for e in _markdown_sections(events) if e["section_id"] == "extraction")
+    assert "### Chronological timeline" in ext["markdown"]
 
 
 # ── Agent call counts ─────────────────────────────────────────────────────────
@@ -389,14 +372,21 @@ async def test_mid_pipeline_failure_emits_markdown_for_prior_steps_only(client, 
     assert section_ids == ["extraction", "rag_retrieval"]
 
 
-async def test_failure_last_event_is_error_not_complete(client, mock_agents):
+async def test_qa_failure_does_not_abort_pipeline(client, mock_agents):
+    """QA is non-critical: a QA failure must not prevent the pipeline from completing.
+
+    The pipeline should still emit a 'complete' event and the preceding steps'
+    sections should be present.  The QA section itself is skipped rather than
+    emitting an error event, because the brief is still usable without QA output.
+    """
     mock_agents["qa"].side_effect = RuntimeError("QA failed")
     async with client.stream(
         "POST", "/api/v1/analyze", data=ANALYZE_FORM_BODY, headers=HEADERS_A
     ) as resp:
         events = await collect_sse(resp)
-    assert events[-1].get("type") == "error"
-    assert not any(e.get("type") == "complete" for e in events)
+    section_ids = [e.get("section_id") for e in _markdown_sections(events)]
+    assert "qa" not in section_ids, "QA section must be absent when QA agent fails"
+    assert events[-1].get("type") == "complete", "Pipeline must still complete after QA failure"
 
 
 async def test_failed_case_saved_with_failed_status(client, mock_agents):
@@ -419,3 +409,37 @@ async def test_server_continues_serving_after_pipeline_error(client, mock_agents
     mock_agents["extraction"].side_effect = None
     r = await client.get("/health")
     assert r.status_code == 200
+
+
+async def test_error_event_contains_detail_string(client, mock_agents):
+    """Error SSE event must include a non-empty 'detail' key."""
+    mock_agents["strategy"].side_effect = RuntimeError("network timeout")
+    async with client.stream(
+        "POST", "/api/v1/analyze", data=ANALYZE_FORM_BODY, headers=HEADERS_A
+    ) as resp:
+        events = await collect_sse(resp)
+    err = events[-1]
+    assert err.get("type") == "error"
+    assert isinstance(err.get("detail"), str) and err["detail"]
+
+
+async def test_delete_case_returns_204(client, mock_agents):
+    """DELETE /api/v1/cases/{id} must return 204 for a known case owned by the same user."""
+    case_id = await run_analyze(client, headers=HEADERS_A)
+    r = await client.delete(f"/api/v1/cases/{case_id}", headers=HEADERS_A)
+    assert r.status_code == 204
+
+
+async def test_delete_case_removes_from_history(client, mock_agents):
+    """After a successful delete, the case must no longer appear in the history listing."""
+    case_id = await run_analyze(client, headers=HEADERS_A)
+    await client.delete(f"/api/v1/cases/{case_id}", headers=HEADERS_A)
+    history = (await client.get("/api/v1/cases", headers=HEADERS_A)).json()
+    assert not any(c["id"] == case_id for c in history)
+
+
+async def test_delete_other_users_case_returns_404(client, mock_agents):
+    """A user must not be able to delete a case they do not own."""
+    case_id = await run_analyze(client, headers=HEADERS_A)
+    r = await client.delete(f"/api/v1/cases/{case_id}", headers=HEADERS_B)
+    assert r.status_code == 404

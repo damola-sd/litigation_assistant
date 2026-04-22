@@ -11,7 +11,14 @@ Key production-readiness checks:
 import asyncio
 from datetime import datetime
 
-from tests.conftest import ANALYZE_FORM_BODY, HEADERS_A, HEADERS_B, SAMPLE_CASE, collect_sse, run_analyze
+from tests.conftest import (
+    ANALYZE_FORM_BODY,
+    HEADERS_A,
+    HEADERS_B,
+    SAMPLE_CASE,
+    collect_sse,
+    run_analyze,
+)
 
 EXPECTED_STEP_NAMES = ["extraction", "rag_retrieval", "strategy", "drafting", "qa"]
 

@@ -2,7 +2,7 @@
 
 [![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
-[![Next.js](https://img.shields.io/badge/Next.js-15-000000?logo=nextdotjs&logoColor=white)](https://nextjs.org)
+[![Next.js](https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs&logoColor=white)](https://nextjs.org)
 [![Clerk](https://img.shields.io/badge/Clerk-Auth%20%26%20Billing-6C47FF?logo=clerk&logoColor=white)](https://clerk.com)
 [![ChromaDB](https://img.shields.io/badge/ChromaDB-Vector%20Store-E85D04?logo=databricks&logoColor=white)](https://www.trychroma.com)
 [![Vercel](https://img.shields.io/badge/Frontend-Vercel-000000?logo=vercel&logoColor=white)](https://vercel.com)
@@ -84,7 +84,7 @@ flowchart TB
     A1 & A2 & A3 & A4 <-->|Prompts & Completions| LLM
 ```
 
-The backend orchestrates four agents sequentially. As each agent completes, the FastAPI `StreamingResponse` yields a JSON payload (e.g. `{"agent": "Extraction", "status": "completed", "data": ...}`) over SSE. The Next.js frontend consumes the stream via an `EventSource` hook and renders each step live - no polling, no page reloads.
+The backend orchestrates four agents sequentially. As each agent completes, the FastAPI `StreamingResponse` yields a `markdown_section` SSE event containing the rendered Markdown for that step. A final `complete` event carrying the `case_id` signals the end of the stream. The Next.js frontend consumes the stream and renders each section live -- no polling, no page reloads.
 
 ---
 
@@ -262,10 +262,16 @@ uv run pytest --tb=short  # concise failure tracebacks
 | File | What it covers |
 |------|---------------|
 | `tests/test_health.py` | `GET /health` liveness check |
-| `tests/test_me.py` | `GET /me` user identity endpoint |
-| `tests/test_analyze.py` | `POST /analyze` — full SSE pipeline, input validation, per-agent output shapes, error handling |
-| `tests/test_history.py` | `GET /cases` + `GET /cases/{id}` — history, user isolation, detail retrieval |
-| `tests/test_schemas.py` | AI Pydantic schema unit tests — model validation and serialisation |
+| `tests/test_me.py` | `GET /api/v1/me` user identity endpoint |
+| `tests/test_analyze.py` | `POST /api/v1/analyze` -- SSE pipeline, input validation, section ordering, error handling, `DELETE /api/v1/cases/{id}` |
+| `tests/test_history.py` | `GET /api/v1/cases` + `GET /api/v1/cases/{id}` -- history listing, user isolation, step detail retrieval |
+| `tests/test_schemas.py` | AI Pydantic schema unit tests -- model validation and serialization |
+
+Run with coverage:
+
+```bash
+uv run pytest tests/ --cov=src --cov-report=term-missing
+```
 
 ---
 
@@ -274,21 +280,37 @@ uv run pytest --tb=short  # concise failure tracebacks
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
 | `GET` | `/health` | - | System health check |
-| `GET` | `/me` | Clerk JWT | Returns authenticated user profile |
-| `POST` | `/analyze` | Clerk JWT | Runs agent pipeline; returns SSE stream |
-| `GET` | `/history` | Clerk JWT | Lists all past analyses for the user |
-| `GET` | `/history/{id}` | Clerk JWT | Returns full case result and agent steps |
+| `GET` | `/api/v1/me` | Clerk JWT | Returns authenticated user profile |
+| `POST` | `/api/v1/analyze` | Clerk JWT | Multipart form (`title`, `case_text`, optional `case_file`); returns SSE stream |
+| `GET` | `/api/v1/cases` | Clerk JWT | Lists all past analyses for the user (optional `?q=` title filter) |
+| `GET` | `/api/v1/cases/{id}` | Clerk JWT | Returns full case result and agent steps |
+| `DELETE` | `/api/v1/cases/{id}` | Clerk JWT | Deletes a case and its agent steps |
 
-### SSE stream format (`POST /analyze`)
+### SSE stream format (`POST /api/v1/analyze`)
 
-Each event is a JSON object yielded as each agent finishes:
+Each line has the form `data: <json>\n\n`. Three event types are emitted:
 
 ```json
-{ "agent": "Extraction", "status": "completed", "data": { ... } }
-{ "agent": "Strategy",   "status": "completed", "data": { ... } }
-{ "agent": "Drafting",   "status": "completed", "data": { ... } }
-{ "agent": "QA",         "status": "completed", "data": { ... } }
-{ "agent": "pipeline",   "status": "done",      "data": { "case_id": "..." } }
+{ "type": "markdown_section", "section_id": "extraction",   "heading": "Fact extraction",    "markdown": "..." }
+{ "type": "markdown_section", "section_id": "rag_retrieval","heading": "Precedent retrieval", "markdown": "..." }
+{ "type": "markdown_section", "section_id": "strategy",     "heading": "Legal strategy",      "markdown": "..." }
+{ "type": "markdown_section", "section_id": "drafting",     "heading": "Draft brief",         "markdown": "..." }
+{ "type": "markdown_section", "section_id": "qa",           "heading": "Quality review",      "markdown": "..." }
+{ "type": "complete", "case_id": "<uuid>" }
+{ "type": "error",    "detail": "<message>" }
+```
+
+### Evaluations (live API calls, incurs cost)
+
+Two offline eval scripts are provided in `backend/evals/`:
+
+```bash
+# Schema regression against 3 golden Kenyan cases (uses real OpenAI API)
+uv run python -m evals.eval_extraction
+
+# LLM-as-judge scoring of the full pipeline (GPT-4o scores completeness, grounding, actionability)
+uv run python -m evals.eval_llm_judge
+uv run python -m evals.eval_llm_judge --threshold 3.5   # stricter pass threshold
 ```
 
 ---
@@ -308,18 +330,19 @@ Each event is a JSON object yielded as each agent finishes:
 
 | Component | Tool |
 |-----------|------|
-| Frontend framework | Next.js 15 (App Router) |
+| Frontend framework | Next.js 16 (App Router) |
 | UI components | shadcn/ui + Tailwind CSS |
 | Auth & billing | Clerk |
 | Backend framework | FastAPI |
-| Agent orchestration | LangGraph / Python state machine |
-| LLM gateway | OpenAI / Anthropic APIs |
-| Structured output | Pydantic + Instructor |
-| RAG vector store | ChromaDB / FAISS |
-| Relational database | PostgreSQL (SQLAlchemy) |
+| Agent orchestration | Custom async pipeline with tenacity retries |
+| LLM gateway | OpenAI API |
+| Structured output | Pydantic + instructor (JSON mode) |
+| Logging | structlog (JSON in production, console in dev) |
+| RAG vector store | Stub -- ChromaDB integration planned |
+| Relational database | PostgreSQL / SQLite (SQLAlchemy async) |
 | Real-time streaming | Server-Sent Events (SSE) |
 | Package manager (BE) | uv |
-| CI/CD | GitHub Actions → Vercel + Render |
+| CI/CD | GitHub Actions (pytest + ruff + mypy + build) |
 
 ---
 
@@ -327,12 +350,13 @@ Each event is a JSON object yielded as each agent finishes:
 
 | Decision | Rationale |
 |----------|-----------|
-| SSE over REST polling | Vercel Serverless Functions have strict timeouts; SSE lets FastAPI yield each agent result as it completes without holding a single long-lived HTTP connection |
-| Sequential state machine over CrewAI | Four agents with a fixed order don't need a complex framework; a simple dict-based state passed from agent to agent is easier to debug and demo |
-| Pydantic + Instructor for structured output | Eliminates unpredictable freeform text from the Drafting Agent; every brief section maps to a typed field |
-| Kenyan law RAG before Strategy Agent | Grounds legal arguments in real statutes and precedents before the model reasons, reducing hallucination risk |
-| ChromaDB / FAISS over managed vector DB | Keeps local dev free and fast; the index is packed into the Docker image for Render so it survives ephemeral disk wipes |
-| Clerk for auth and billing | Handles JWT validation, subscription plans, and route protection without custom auth code |
+| SSE over REST polling | FastAPI's `StreamingResponse` can yield each step result as it completes, giving the UI a live feed without a long-polling loop |
+| Sequential async pipeline over multi-agent framework | Four agents with a fixed causal order do not need a routing framework; a plain async generator is easier to trace, test, and extend |
+| instructor (JSON mode) for structured output | Automatic schema injection into the prompt and transparent retry on malformed JSON; removes manual `json.loads` + exception handling from every agent |
+| tenacity retry on OpenAI calls | Transient rate-limit and connection errors are retried with exponential backoff rather than surfaced to the user immediately |
+| QA step treated as non-critical | A failed QA step must not discard an otherwise complete brief; the pipeline emits a `complete` event regardless, skipping the QA section |
+| structlog for logging | Newline-delimited JSON output in production is ingestible by any log aggregator without format negotiation |
+| Clerk for auth and billing | Handles JWT validation, subscription plans, and route protection; JWKS validation is implemented server-side with a 5-minute cache |
 
 ---
 

@@ -1,24 +1,41 @@
-import json
+"""Drafting agent.
 
-from openai import AsyncOpenAI
+Produces a formally structured litigation brief in Markdown following Kenyan
+High Court drafting conventions.  The output is intentionally prose/markdown
+rather than JSON, so instructor is not used here; the model is prompted to
+produce a specific heading structure that is then passed through as-is.
+"""
+
+import json
+import time
 
 from src.agents.prompts import DRAFTING_PROMPT
-from src.core.config import settings
+from src.core.logging import get_logger
+from src.core.openai_client import get_async_client
 from src.schemas.ai_schemas import DraftingResult, ExtractionResult, StrategyResult
 
-_client = AsyncOpenAI(api_key=settings.openai_api_key)
+logger = get_logger(__name__)
 
 
 async def run_drafting_agent(
     extraction: ExtractionResult,
     strategy: StrategyResult,
 ) -> DraftingResult:
+    """Draft a formal litigation brief from extracted facts and legal strategy."""
+    from src.core.config import settings
+
+    client = get_async_client()
+
     user_content = (
         f"Core facts:\n{json.dumps(extraction.core_facts, indent=2)}\n\n"
         f"Timeline:\n{json.dumps([t.model_dump() for t in extraction.chronological_timeline], indent=2)}\n\n"
         f"Legal strategy:\n{json.dumps(strategy.model_dump(), indent=2)}"
     )
-    response = await _client.chat.completions.create(
+
+    logger.info("llm_call_start", agent="drafting", model=settings.openai_model)
+    start = time.monotonic()
+
+    response = await client.chat.completions.create(
         model=settings.openai_model,
         messages=[
             {"role": "system", "content": DRAFTING_PROMPT},
@@ -26,14 +43,17 @@ async def run_drafting_agent(
         ],
         temperature=0.3,
     )
+
+    duration_ms = round((time.monotonic() - start) * 1000, 1)
+    usage = response.usage
+    logger.info(
+        "llm_call_complete",
+        agent="drafting",
+        model=settings.openai_model,
+        duration_ms=duration_ms,
+        prompt_tokens=usage.prompt_tokens if usage else None,
+        completion_tokens=usage.completion_tokens if usage else None,
+    )
+
     brief_markdown = response.choices[0].message.content or ""
     return DraftingResult(brief_markdown=brief_markdown)
-
-
-def drafting_agent(state: dict) -> dict:
-    import asyncio
-    extraction = ExtractionResult(**state["extraction"])
-    strategy = StrategyResult(**state["strategy"])
-    result = asyncio.get_event_loop().run_until_complete(run_drafting_agent(extraction, strategy))
-    state["draft"] = result.model_dump()
-    return state

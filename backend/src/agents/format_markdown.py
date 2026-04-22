@@ -43,7 +43,7 @@ def strategy_to_markdown(s: StrategyResult) -> str:
         lines.append("")
     lines.extend(["### Counterarguments", ""])
     for c in s.counterarguments:
-        lines.append(f"- {c}")
+        lines.append(f"- **Re: {c.rebutting_argument}** -- {c.counterargument}")
     lines.extend(["", "### Legal reasoning", "", s.legal_reasoning.strip()])
     return "\n".join(lines).strip()
 

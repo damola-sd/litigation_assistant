@@ -21,10 +21,9 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 # Import models first so they register with Base.metadata before any test creates tables.
 import src.database.models as _models  # noqa: F401
-
-from src.main import app as fastapi_app
-from src.database.session import get_db
 from src.database.models import Base
+from src.database.session import get_db
+from src.main import app as fastapi_app
 from src.schemas.ai_schemas import (
     Counterargument,
     DraftingResult,

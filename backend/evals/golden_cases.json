@@ -1,0 +1,41 @@
+[
+  {
+    "id": "land-001",
+    "description": "Land sale specific performance — part performance",
+    "case_text": "On 15 March 2023, John Kamau entered into a written agreement with Sarah Wanjiru for the sale of land parcel No. 123/456 in Kiambu County for KES 5,000,000. John paid a deposit of KES 500,000 on the same day and was given possession of the land. Sarah has since refused to execute the transfer documents, claiming the agreement is void for non-compliance with section 3(3) of the Law of Contract Act. John now seeks specific performance and damages.",
+    "expected": {
+      "min_core_facts": 4,
+      "required_entity_names": ["John Kamau", "Sarah Wanjiru", "Kiambu County"],
+      "required_entity_types": ["person", "place"],
+      "min_timeline_events": 2,
+      "timeline_must_contain_date_prefix": "2023-03-15",
+      "expected_keywords_in_facts": ["KES 5,000,000", "deposit", "transfer documents"]
+    }
+  },
+  {
+    "id": "supply-001",
+    "description": "Government procurement — unpaid supply of goods",
+    "case_text": "On 3 June 2021, Wanjiru Holdings Ltd entered into a written contract with the Nairobi County Government for the supply of 500 school desks to Pumwani Primary School at KES 1,250,000. The County issued LPO No. NPG/2021/0034 on 10 June 2021. Wanjiru delivered the desks on 30 June 2021 and issued Invoice No. WHL/INV/2021/089. The County has not paid despite two formal demand letters dated 15 August 2021 and 1 October 2021. Wanjiru now seeks to recover the outstanding balance with interest.",
+    "expected": {
+      "min_core_facts": 4,
+      "required_entity_names": ["Wanjiru Holdings Ltd", "Nairobi County Government"],
+      "required_entity_types": ["company", "government_body"],
+      "min_timeline_events": 4,
+      "timeline_must_contain_date_prefix": "2021-06-03",
+      "expected_keywords_in_facts": ["KES 1,250,000", "demand letters", "delivered"]
+    }
+  },
+  {
+    "id": "employment-001",
+    "description": "Unfair termination — summary dismissal without notice",
+    "case_text": "Grace Muthoni was employed as Senior Accountant by Apex Developers Ltd under a written contract dated 1 January 2020. On 5 September 2023 she was summarily dismissed via a letter citing 'gross misconduct' without a prior disciplinary hearing or show-cause notice. Grace had no prior disciplinary record. Her final salary of KES 180,000 for August 2023 was not paid. She now claims unfair termination, unpaid salary, and three months notice pay under the Employment Act, 2007.",
+    "expected": {
+      "min_core_facts": 4,
+      "required_entity_names": ["Grace Muthoni", "Apex Developers Ltd"],
+      "required_entity_types": ["person", "company"],
+      "min_timeline_events": 2,
+      "timeline_must_contain_date_prefix": "2023-09-05",
+      "expected_keywords_in_facts": ["dismissal", "disciplinary", "KES 180,000"]
+    }
+  }
+]

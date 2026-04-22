@@ -26,7 +26,6 @@ from src.schemas.ai_schemas import (
     TimelineEvent,
 )
 
-
 # ── Entity ────────────────────────────────────────────────────────────────────
 
 

@@ -1,30 +1,70 @@
-import json
+"""Extraction agent.
 
-from openai import AsyncOpenAI
+Pulls legally significant facts, named entities, and a chronological timeline
+from raw case text using a structured output call via instructor.
+"""
 
-from src.agents.prompts import EXTRACTION_PROMPT
-from src.core.config import settings
+import time
+
+import instructor
+
+from src.agents.prompts import (
+    EXTRACTION_PROMPT,
+    EXTRACTION_PROMPT_VERSION,
+    FEW_SHOT_ASSISTANT,
+    FEW_SHOT_USER,
+)
+from src.core.logging import get_logger
+from src.core.openai_client import get_async_client
 from src.schemas.ai_schemas import ExtractionResult
 
-_client = AsyncOpenAI(api_key=settings.openai_api_key)
+logger = get_logger(__name__)
+
+_MODEL = "gpt-4o-mini"
 
 
 async def run_extraction_agent(case_text: str) -> ExtractionResult:
-    response = await _client.chat.completions.create(
-        model="gpt-4o-mini",
-        response_format={"type": "json_object"},
-        messages=[
-            {"role": "system", "content": EXTRACTION_PROMPT},
-            {"role": "user", "content": f"Extract structured information from this case:\n\n{case_text}"},
-        ],
+    """Extract structured legal facts from raw case text.
+
+    Uses instructor in JSON mode so the Pydantic schema is injected into the
+    prompt automatically and malformed outputs are retried transparently.
+    """
+    client = instructor.from_async(get_async_client(), mode=instructor.Mode.JSON)  # type: ignore[attr-defined]
+
+    messages = [
+        {"role": "system", "content": EXTRACTION_PROMPT},
+        {"role": "user", "content": FEW_SHOT_USER},
+        {"role": "assistant", "content": FEW_SHOT_ASSISTANT},
+        {
+            "role": "user",
+            "content": f"Extract structured information from this case:\n\n{case_text}",
+        },
+    ]
+
+    logger.info(
+        "llm_call_start",
+        agent="extraction",
+        model=_MODEL,
+        prompt_version=EXTRACTION_PROMPT_VERSION,
+    )
+    start = time.monotonic()
+
+    result, completion = await client.chat.completions.create_with_completion(
+        model=_MODEL,
+        response_model=ExtractionResult,
+        messages=messages,
         temperature=0.1,
     )
-    data = json.loads(response.choices[0].message.content or "{}")
-    return ExtractionResult(**data)
 
+    duration_ms = round((time.monotonic() - start) * 1000, 1)
+    usage = completion.usage
+    logger.info(
+        "llm_call_complete",
+        agent="extraction",
+        model=_MODEL,
+        duration_ms=duration_ms,
+        prompt_tokens=usage.prompt_tokens if usage else None,
+        completion_tokens=usage.completion_tokens if usage else None,
+    )
 
-def extraction_agent(state: dict) -> dict:
-    import asyncio
-    result = asyncio.get_event_loop().run_until_complete(run_extraction_agent(state["raw_text"]))
-    state["extraction"] = result.model_dump()
-    return state
+    return result
