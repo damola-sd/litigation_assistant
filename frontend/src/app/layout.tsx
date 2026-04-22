@@ -8,8 +8,6 @@ import { AuthenticatedLayout } from "@/components/authenticated-layout";
 import "../styles/globals.css";
 import "react-datepicker/dist/react-datepicker.css";
 
-const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
-
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -30,13 +28,6 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  if (!publishableKey) {
-    return (
-      <html lang="en">
-        <body>{children}</body>
-      </html>
-    );
-  }
   return (
     <html lang="en">
       <body
