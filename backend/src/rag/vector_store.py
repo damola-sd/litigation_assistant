@@ -12,12 +12,12 @@ EMBED_MODEL = "text-embedding-3-small"
 DEFAULT_PERSIST_DIR = str(Path(__file__).resolve().parents[3] / "data" / "vector_db")
 
 
-def get_chroma_client(persist_dir: str = DEFAULT_PERSIST_DIR) -> chromadb.PersistentClient:
+def get_chroma_client(persist_dir: str = DEFAULT_PERSIST_DIR) -> chromadb.PersistentClient:  # type: ignore[valid-type]
     return chromadb.PersistentClient(path=persist_dir)
 
 
-def get_collection(client: chromadb.PersistentClient) -> chromadb.Collection:
-    return client.get_or_create_collection(
+def get_collection(client: chromadb.PersistentClient) -> chromadb.Collection:  # type: ignore[valid-type]
+    return client.get_or_create_collection(  # type: ignore[attr-defined]
         name=COLLECTION_NAME,
         metadata={"hnsw:space": "cosine"},
     )

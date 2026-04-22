@@ -12,7 +12,10 @@ from pathlib import Path
 from openai import OpenAI
 
 from src.core.config import settings
+from src.core.logging import configure_logging, get_logger
 from src.rag.vector_store import DEFAULT_PERSIST_DIR, EMBED_MODEL, get_chroma_client, get_collection
+
+logger = get_logger(__name__)
 
 RAW_DIR = Path(__file__).resolve().parents[3] / "data" / "raw"
 
@@ -49,8 +52,12 @@ def ingest_documents(
     """
     resolved_key = api_key or settings.openai_api_key
     txt_files = sorted(raw_dir.glob("*.txt")) + sorted(raw_dir.glob("*.md"))
+
     if not txt_files:
+        logger.warning("ingestion_no_files_found", raw_dir=str(raw_dir))
         return {"detail": "no_files_found", "chunks_added": 0}
+
+    logger.info("ingestion_start", raw_dir=str(raw_dir), file_count=len(txt_files))
 
     all_docs: list[str] = []
     all_ids: list[str] = []
@@ -58,13 +65,23 @@ def ingest_documents(
 
     for fpath in txt_files:
         text = fpath.read_text(encoding="utf-8", errors="replace")
-        for i, chunk in enumerate(chunk_text(text)):
+        file_chunks = chunk_text(text)
+        for i, chunk in enumerate(file_chunks):
             all_docs.append(chunk)
             all_ids.append(f"{fpath.stem}_{i}_{uuid.uuid4().hex[:6]}")
             all_metadata.append({"source": fpath.name, "chunk_index": i})
+        logger.info("ingestion_file_processed", file=fpath.name, chunks=len(file_chunks))
 
     if not all_docs:
+        logger.warning("ingestion_no_content", raw_dir=str(raw_dir))
         return {"detail": "no_content", "chunks_added": 0}
+
+    logger.info(
+        "ingestion_embed_start",
+        total_chunks=len(all_docs),
+        batch_size=_EMBED_BATCH_SIZE,
+        model=EMBED_MODEL,
+    )
 
     openai_client = OpenAI(api_key=resolved_key)
     embeddings: list[list[float]] = []
@@ -72,14 +89,21 @@ def ingest_documents(
         batch = all_docs[i : i + _EMBED_BATCH_SIZE]
         resp = openai_client.embeddings.create(model=EMBED_MODEL, input=batch)
         embeddings.extend(item.embedding for item in resp.data)
+        logger.info(
+            "ingestion_embed_batch_complete",
+            batch_start=i,
+            batch_end=min(i + _EMBED_BATCH_SIZE, len(all_docs)),
+        )
 
     chroma = get_chroma_client(persist_dir)
     collection = get_collection(chroma)
-    collection.add(documents=all_docs, embeddings=embeddings, ids=all_ids, metadatas=all_metadata)
+    collection.add(documents=all_docs, embeddings=embeddings, ids=all_ids, metadatas=all_metadata)  # type: ignore[arg-type]
 
+    logger.info("ingestion_complete", chunks_added=len(all_docs), persist_dir=persist_dir)
     return {"detail": "ok", "chunks_added": len(all_docs)}
 
 
 if __name__ == "__main__":
+    configure_logging()
     result = ingest_documents()
     print(result)
