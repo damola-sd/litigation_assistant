@@ -241,6 +241,32 @@ async def test_strategy_arguments_rendered_in_markdown(client, mock_agents):
     assert "Law of Contract Act" in md
 
 
+async def test_strategy_counterarguments_are_structured_objects(client, mock_agents):
+    """Each counterargument stored in DB must have rebutting_argument and counterargument keys."""
+    case_id = await run_analyze(client)
+    detail = (await client.get(f"/api/v1/cases/{case_id}", headers=HEADERS_A)).json()
+    result = next(s for s in detail["steps"] if s["step_name"] == "strategy")["result"]
+    assert isinstance(result["counterarguments"], list)
+    for item in result["counterarguments"]:
+        assert isinstance(item, dict), "Each counterargument must be a dict"
+        assert "rebutting_argument" in item, "Missing rebutting_argument key"
+        assert "counterargument" in item, "Missing counterargument key"
+        assert isinstance(item["rebutting_argument"], str) and item["rebutting_argument"]
+        assert isinstance(item["counterargument"], str) and item["counterargument"]
+
+
+async def test_strategy_arguments_are_structured_objects(client, mock_agents):
+    """Each argument stored in DB must have issue, applicable_kenyan_law, and argument_summary."""
+    case_id = await run_analyze(client)
+    detail = (await client.get(f"/api/v1/cases/{case_id}", headers=HEADERS_A)).json()
+    result = next(s for s in detail["steps"] if s["step_name"] == "strategy")["result"]
+    assert isinstance(result["arguments"], list) and len(result["arguments"]) > 0
+    for arg in result["arguments"]:
+        assert isinstance(arg, dict)
+        for key in ["issue", "applicable_kenyan_law", "argument_summary"]:
+            assert key in arg, f"Argument missing key: {key}"
+
+
 async def test_drafting_result_has_brief_markdown(client, mock_agents):
     async with client.stream(
         "POST", "/api/v1/analyze", data=ANALYZE_FORM_BODY, headers=HEADERS_A
@@ -258,6 +284,21 @@ async def test_drafting_brief_contains_required_sections(client, mock_agents):
         events = await collect_sse(resp)
     draft = next(e for e in _markdown_sections(events) if e["section_id"] == "drafting")
     brief = draft["markdown"]
+    for section in [
+        "## FACTS",
+        "## ISSUES FOR DETERMINATION",
+        "## LEGAL ARGUMENTS",
+        "## RESPONDENT'S ANTICIPATED POSITION",
+        "## CONCLUSION AND PRAYER FOR RELIEF",
+    ]:
+        assert section in brief, f"Brief missing required section: {section}"
+
+
+async def test_drafting_brief_persisted_with_required_sections(client, mock_agents):
+    """The brief stored in DB must include all sections mandated by the drafting prompt."""
+    case_id = await run_analyze(client)
+    detail = (await client.get(f"/api/v1/cases/{case_id}", headers=HEADERS_A)).json()
+    brief = next(s for s in detail["steps"] if s["step_name"] == "drafting")["result"]["brief_markdown"]
     for section in [
         "## FACTS",
         "## ISSUES FOR DETERMINATION",
@@ -290,6 +331,17 @@ async def test_qa_result_has_all_output_fields(client, mock_agents):
     assert "### Risk notes" in md
 
 
+async def test_qa_result_persisted_with_all_schema_fields(client, mock_agents):
+    """QA result stored in DB must include all four schema fields."""
+    case_id = await run_analyze(client)
+    detail = (await client.get(f"/api/v1/cases/{case_id}", headers=HEADERS_A)).json()
+    result = next(s for s in detail["steps"] if s["step_name"] == "qa")["result"]
+    for key in ["risk_level", "hallucination_warnings", "missing_logic", "risk_notes"]:
+        assert key in result, f"QA result missing key: {key}"
+    assert isinstance(result["missing_logic"], list)
+    assert isinstance(result["risk_notes"], list)
+
+
 async def test_extraction_markdown_entities_contain_name(client, mock_agents):
     """Extraction markdown must list the entity names from the mock output."""
     async with client.stream(
@@ -310,6 +362,29 @@ async def test_extraction_markdown_timeline_present(client, mock_agents):
         events = await collect_sse(resp)
     ext = next(e for e in _markdown_sections(events) if e["section_id"] == "extraction")
     assert "### Chronological timeline" in ext["markdown"]
+
+
+async def test_extraction_entities_have_name_type_role(client, mock_agents):
+    """Every entity stored in DB must have name, type, and role fields."""
+    case_id = await run_analyze(client)
+    detail = (await client.get(f"/api/v1/cases/{case_id}", headers=HEADERS_A)).json()
+    result = next(s for s in detail["steps"] if s["step_name"] == "extraction")["result"]
+    for entity in result["entities"]:
+        assert isinstance(entity, dict)
+        for field in ["name", "type", "role"]:
+            assert field in entity, f"Entity missing field: {field}"
+            assert isinstance(entity[field], str) and entity[field]
+
+
+async def test_extraction_timeline_events_have_date_and_event(client, mock_agents):
+    """Every timeline entry stored in DB must have date and event keys."""
+    case_id = await run_analyze(client)
+    detail = (await client.get(f"/api/v1/cases/{case_id}", headers=HEADERS_A)).json()
+    result = next(s for s in detail["steps"] if s["step_name"] == "extraction")["result"]
+    for entry in result["chronological_timeline"]:
+        assert isinstance(entry, dict)
+        assert "date" in entry and isinstance(entry["date"], str) and entry["date"]
+        assert "event" in entry and isinstance(entry["event"], str) and entry["event"]
 
 
 # ── Agent call counts ─────────────────────────────────────────────────────────
