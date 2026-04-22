@@ -26,6 +26,7 @@ from src.main import app as fastapi_app
 from src.database.session import get_db
 from src.database.models import Base
 from src.schemas.ai_schemas import (
+    Counterargument,
     DraftingResult,
     Entity,
     ExtractionResult,
@@ -80,8 +81,14 @@ MOCK_STRATEGY = StrategyResult(
         ),
     ],
     counterarguments=[
-        "Sarah may claim the contract is void for lack of essential terms",
-        "Sarah may argue the deposit was conditional and possession was temporary",
+        Counterargument(
+            rebutting_argument="Validity of contract",
+            counterargument="Sarah may claim the contract is void for lack of essential terms",
+        ),
+        Counterargument(
+            rebutting_argument="Specific performance",
+            counterargument="Sarah may argue the deposit was conditional and possession was temporary",
+        ),
     ],
     legal_reasoning=(
         "The contract is valid under Kenyan law. John's part performance strengthens "
@@ -92,6 +99,8 @@ MOCK_STRATEGY = StrategyResult(
 MOCK_DRAFT = DraftingResult(
     brief_markdown=(
         "# IN THE MATTER OF John Kamau v Sarah Wanjiru\n\n"
+        "## PARTIES\n"
+        "The Applicant is John Kamau. The Respondent is Sarah Wanjiru.\n\n"
         "## FACTS\n"
         "On 15 March 2023, John Kamau entered into a written agreement with Sarah Wanjiru "
         "for the purchase of land parcel No. 123/456 in Kiambu County at KES 5,000,000.\n\n"
@@ -99,9 +108,16 @@ MOCK_DRAFT = DraftingResult(
         "1. Whether the written agreement constitutes a valid and enforceable contract\n"
         "2. Whether John Kamau is entitled to an order of specific performance\n\n"
         "## LEGAL ARGUMENTS\n"
+        "### Validity of Contract\n"
         "The agreement satisfies Section 3(3) of the Law of Contract Act, Cap 23.\n\n"
-        "## CONCLUSION\n"
-        "The Court should grant specific performance and costs."
+        "### Specific Performance\n"
+        "Part performance entitles the Applicant to specific performance under Section 38 "
+        "of the Land Act, No. 6 of 2012.\n\n"
+        "## RESPONDENT'S ANTICIPATED POSITION\n"
+        "The Respondent may contend the contract is void. This is untenable given the "
+        "written agreement and the Applicant's part performance.\n\n"
+        "## CONCLUSION AND PRAYER FOR RELIEF\n"
+        "The Court should grant specific performance and award costs to the Applicant."
     )
 )
 
