@@ -25,10 +25,10 @@ export default function ScanDetailPage() {
   useEffect(() => {
     if (!isLoaded || !id) return;
     let cancelled = false;
-    setDetail(null);
-    (async () => {
+    void (async () => {
       setLoading(true);
       setError(null);
+      setDetail(null);
       try {
         const data = await getCase(id, userId);
         if (!cancelled) setDetail(data);
@@ -71,7 +71,7 @@ export default function ScanDetailPage() {
           ← All scans
         </Link>
         <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-          {detail?.title ?? "Scan detail"}
+          {detail && detail.id === id ? detail.title : "Scan detail"}
         </h1>
         <p className="mt-1 font-mono text-xs text-gray-500 dark:text-gray-400">
           {id || "—"}
