@@ -212,16 +212,12 @@ async def test_strategy_markdown_contains_issues_and_laws(client, mock_agents):
 
 
 async def test_strategy_counterarguments_are_structured_objects(client, mock_agents):
-    """Each counterargument must be a dict with rebutting_argument and counterargument keys."""
-    async with client.stream(
-        "POST", "/api/v1/analyze", json={"raw_case_text": SAMPLE_CASE}, headers=HEADERS_A
-    ) as resp:
-        events = await collect_sse(resp)
-    data = next(
-        e["data"] for e in events if e.get("step") == "strategy" and e.get("status") == "completed"
-    )
-    assert isinstance(data["counterarguments"], list)
-    for item in data["counterarguments"]:
+    """Each counterargument stored in DB must have rebutting_argument and counterargument keys."""
+    case_id = await run_analyze(client)
+    detail = (await client.get(f"/api/v1/cases/{case_id}", headers=HEADERS_A)).json()
+    result = next(s for s in detail["steps"] if s["step_name"] == "strategy")["result"]
+    assert isinstance(result["counterarguments"], list)
+    for item in result["counterarguments"]:
         assert isinstance(item, dict), "Each counterargument must be a dict"
         assert "rebutting_argument" in item, "Missing rebutting_argument key"
         assert "counterargument" in item, "Missing counterargument key"
@@ -230,16 +226,12 @@ async def test_strategy_counterarguments_are_structured_objects(client, mock_age
 
 
 async def test_strategy_arguments_are_structured_objects(client, mock_agents):
-    """Each argument must be a dict with issue, applicable_kenyan_law, and argument_summary."""
-    async with client.stream(
-        "POST", "/api/v1/analyze", json={"raw_case_text": SAMPLE_CASE}, headers=HEADERS_A
-    ) as resp:
-        events = await collect_sse(resp)
-    data = next(
-        e["data"] for e in events if e.get("step") == "strategy" and e.get("status") == "completed"
-    )
-    assert isinstance(data["arguments"], list) and len(data["arguments"]) > 0
-    for arg in data["arguments"]:
+    """Each argument stored in DB must have issue, applicable_kenyan_law, and argument_summary."""
+    case_id = await run_analyze(client)
+    detail = (await client.get(f"/api/v1/cases/{case_id}", headers=HEADERS_A)).json()
+    result = next(s for s in detail["steps"] if s["step_name"] == "strategy")["result"]
+    assert isinstance(result["arguments"], list) and len(result["arguments"]) > 0
+    for arg in result["arguments"]:
         assert isinstance(arg, dict)
         for key in ["issue", "applicable_kenyan_law", "argument_summary"]:
             assert key in arg, f"Argument missing key: {key}"
@@ -255,15 +247,10 @@ async def test_drafting_result_has_brief_markdown(client, mock_agents):
 
 
 async def test_drafting_brief_contains_required_sections(client, mock_agents):
-    """The brief must include all sections mandated by the improved drafting prompt."""
-    async with client.stream(
-        "POST", "/api/v1/analyze", json={"raw_case_text": SAMPLE_CASE}, headers=HEADERS_A
-    ) as resp:
-        events = await collect_sse(resp)
-    data = next(
-        e["data"] for e in events if e.get("step") == "drafting" and e.get("status") == "completed"
-    )
-    brief = data["brief_markdown"]
+    """The brief stored in DB must include all sections mandated by the drafting prompt."""
+    case_id = await run_analyze(client)
+    detail = (await client.get(f"/api/v1/cases/{case_id}", headers=HEADERS_A)).json()
+    brief = next(s for s in detail["steps"] if s["step_name"] == "drafting")["result"]["brief_markdown"]
     for section in [
         "## FACTS",
         "## ISSUES FOR DETERMINATION",
@@ -284,30 +271,22 @@ async def test_qa_result_has_required_keys(client, mock_agents):
 
 
 async def test_qa_result_has_all_output_fields(client, mock_agents):
-    """QA result must include all four fields defined by the improved QA prompt schema."""
-    async with client.stream(
-        "POST", "/api/v1/analyze", json={"raw_case_text": SAMPLE_CASE}, headers=HEADERS_A
-    ) as resp:
-        events = await collect_sse(resp)
-    data = next(
-        e["data"] for e in events if e.get("step") == "qa" and e.get("status") == "completed"
-    )
+    """QA result stored in DB must include all four schema fields."""
+    case_id = await run_analyze(client)
+    detail = (await client.get(f"/api/v1/cases/{case_id}", headers=HEADERS_A)).json()
+    result = next(s for s in detail["steps"] if s["step_name"] == "qa")["result"]
     for key in ["risk_level", "hallucination_warnings", "missing_logic", "risk_notes"]:
-        assert key in data, f"QA result missing key: {key}"
-    assert isinstance(data["missing_logic"], list)
-    assert isinstance(data["risk_notes"], list)
+        assert key in result, f"QA result missing key: {key}"
+    assert isinstance(result["missing_logic"], list)
+    assert isinstance(result["risk_notes"], list)
 
 
 async def test_extraction_entities_have_name_type_role(client, mock_agents):
-    """Every entity extracted must have name, type, and role per the improved extraction prompt."""
-    async with client.stream(
-        "POST", "/api/v1/analyze", json={"raw_case_text": SAMPLE_CASE}, headers=HEADERS_A
-    ) as resp:
-        events = await collect_sse(resp)
-    data = next(
-        e["data"] for e in events if e.get("step") == "extraction" and e.get("status") == "completed"
-    )
-    for entity in data["entities"]:
+    """Every entity stored in DB must have name, type, and role fields."""
+    case_id = await run_analyze(client)
+    detail = (await client.get(f"/api/v1/cases/{case_id}", headers=HEADERS_A)).json()
+    result = next(s for s in detail["steps"] if s["step_name"] == "extraction")["result"]
+    for entity in result["entities"]:
         assert isinstance(entity, dict)
         for field in ["name", "type", "role"]:
             assert field in entity, f"Entity missing field: {field}"
@@ -315,15 +294,11 @@ async def test_extraction_entities_have_name_type_role(client, mock_agents):
 
 
 async def test_extraction_timeline_events_have_date_and_event(client, mock_agents):
-    """Every timeline entry must have date and event keys."""
-    async with client.stream(
-        "POST", "/api/v1/analyze", json={"raw_case_text": SAMPLE_CASE}, headers=HEADERS_A
-    ) as resp:
-        events = await collect_sse(resp)
-    data = next(
-        e["data"] for e in events if e.get("step") == "extraction" and e.get("status") == "completed"
-    )
-    for entry in data["chronological_timeline"]:
+    """Every timeline entry stored in DB must have date and event keys."""
+    case_id = await run_analyze(client)
+    detail = (await client.get(f"/api/v1/cases/{case_id}", headers=HEADERS_A)).json()
+    result = next(s for s in detail["steps"] if s["step_name"] == "extraction")["result"]
+    for entry in result["chronological_timeline"]:
         assert isinstance(entry, dict)
         assert "date" in entry and isinstance(entry["date"], str) and entry["date"]
         assert "event" in entry and isinstance(entry["event"], str) and entry["event"]

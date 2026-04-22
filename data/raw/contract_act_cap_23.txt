@@ -1,0 +1,145 @@
+LAW OF CONTRACT ACT
+CHAPTER 23 OF THE LAWS OF KENYA
+[Placeholder legal corpus for RAG development]
+
+PART I — PRELIMINARY
+
+1. Short title
+This Act may be cited as the Law of Contract Act.
+
+2. Application of English law of contract
+Subject to any written law, the common law of England relating to contract, as modified by
+the doctrines of equity, shall extend and apply to all contracts made in Kenya.
+
+PART II — FORMATION OF CONTRACTS
+
+3. Requirements for written contracts
+(1) A contract for the sale or other disposition of an interest in land shall be in writing,
+signed by or on behalf of each party.
+
+(2) Writing is also required for any contract which expressly states that it must be in writing.
+
+(3) Where a contract for the sale of an interest in land is not in writing signed by the parties,
+it shall not be enforceable in an action unless there has been sufficient part performance of
+the contract by the party seeking to enforce it, or unless the court is satisfied that it would
+be inequitable for the party against whom enforcement is sought to deny the existence of the
+contract.
+
+(4) Part performance includes payment of deposit, taking possession of land, making improvements,
+or any other act done by one party in reliance on the contract with the knowledge of the other party.
+
+4. Offer and acceptance
+(1) An offer is a proposal made by one party to another with the intention that it shall become
+binding on acceptance.
+
+(2) Acceptance must be absolute and unqualified. A conditional acceptance or counter-offer is
+a rejection of the original offer and constitutes a new offer.
+
+(3) An offer may be revoked at any time before acceptance, provided such revocation is communicated
+to the offeree before acceptance.
+
+5. Consideration
+(1) A promise made without consideration is not enforceable unless it is made by deed.
+
+(2) Consideration may be executed (an act performed at the time of the contract) or executory
+(a promise to perform an act in the future).
+
+(3) Past consideration is not good consideration in law.
+
+(4) Consideration need not be adequate but must be real and of some value in the eyes of the law.
+
+6. Capacity to contract
+(1) Every person is competent to contract who is of the age of majority (18 years) and who is
+of sound mind.
+
+(2) A minor is not bound by a contract except for necessaries.
+
+(3) A person of unsound mind is not bound by a contract unless it is shown that the other party
+was unaware of the incapacity.
+
+PART III — PERFORMANCE AND BREACH
+
+7. Obligations of parties
+(1) Each party to a contract is bound to perform their obligations as agreed.
+
+(2) Where one party fails to perform, the other party may treat the contract as discharged if
+the breach goes to the root of the contract (fundamental breach).
+
+8. Discharge by breach
+(1) A contract may be discharged by breach where one party refuses or fails to perform their
+contractual obligations.
+
+(2) Where a party repudiates a contract before the time of performance, the other party may
+accept the repudiation and sue immediately for damages (anticipatory breach).
+
+9. Damages for breach
+(1) Where a contract is breached, the innocent party is entitled to recover damages.
+
+(2) Damages are assessed at the time of breach and are intended to place the innocent party in
+the position they would have been in had the contract been performed (expectation measure).
+
+(3) The claimant has a duty to mitigate their loss by taking reasonable steps to reduce the
+consequences of the breach.
+
+(4) Remote or unforeseeable losses are not recoverable: Hadley v Baxendale principle.
+
+PART IV — REMEDIES
+
+10. Specific performance
+(1) Specific performance is an equitable remedy requiring the party in breach to perform their
+contractual obligations.
+
+(2) Specific performance will generally be granted where damages are an inadequate remedy,
+particularly in contracts for the sale of land (since land is considered unique).
+
+(3) The court will not grant specific performance where:
+    (a) the party seeking it has not performed or offered to perform their own obligations;
+    (b) the contract was induced by fraud, misrepresentation or mistake;
+    (c) specific performance would cause undue hardship.
+
+11. Rescission
+(1) Rescission sets aside the contract and restores the parties to their pre-contractual positions.
+
+(2) Rescission may be claimed for misrepresentation, duress, undue influence, or mistake.
+
+12. Injunctions
+An injunction may be granted to restrain a party from committing or continuing a breach of contract.
+
+PART V — SPECIFIC TYPES OF CONTRACTS
+
+13. Contracts for the sale of goods
+(1) The Sale of Goods Act governs contracts for the sale of goods.
+
+(2) In contracts for the sale of goods, property and risk pass as agreed by the parties or
+according to the rules set out in the Sale of Goods Act.
+
+14. Contracts for services
+(1) A party providing services under a contract is bound to exercise the standard of care and
+skill reasonably expected of a person in that profession or trade.
+
+(2) Implied terms in contracts for services include: reasonable care and skill, reasonable time
+for completion, and a reasonable price if not specified.
+
+15. Agency contracts
+(1) An agent has authority to act on behalf of the principal to the extent of their actual or
+ostensible authority.
+
+(2) The principal is bound by contracts made by the agent within the scope of their authority.
+
+PART VI — ILLEGALITY AND PUBLIC POLICY
+
+16. Illegal contracts
+(1) A contract is illegal where its formation, purpose, or performance is prohibited by statute
+or is contrary to public policy.
+
+(2) An illegal contract is void and unenforceable. No action can be brought on such a contract.
+
+(3) Where parties are not in pari delicto (equal fault), the less culpable party may recover
+money paid or property transferred.
+
+17. Restraint of trade
+(1) A covenant in restraint of trade is prima facie void but may be upheld if it is reasonable
+in the interests of the parties and of the public.
+
+(2) In employment contracts, a restraint must be reasonable as to its geographic scope, duration,
+and subject matter.

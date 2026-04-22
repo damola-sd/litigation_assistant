@@ -1,0 +1,154 @@
+EMPLOYMENT ACT
+NO. 11 OF 2007
+LAWS OF KENYA
+[Placeholder legal corpus for RAG development]
+
+PART I — PRELIMINARY
+
+1. Short title and commencement
+This Act may be cited as the Employment Act, 2007.
+
+2. Interpretation
+In this Act, unless the context otherwise requires:
+"contract of service" means an agreement, whether oral or written, express or implied, to employ
+or to serve as an employee for a period of time and includes a contract of apprenticeship and
+indentured learnership.
+"employee" means a person employed for wages or a salary and includes a casual employee.
+"employer" means any person, public body, firm, corporation or company who or which has entered
+into a contract of service with an employee.
+"wages" means all remuneration, including allowances, paid or payable to an employee in respect
+of work done or to be done.
+
+PART II — FUNDAMENTAL RIGHTS
+
+3. Prohibition of forced labour
+No person shall be required to perform forced or compulsory labour.
+
+4. Prohibition of discrimination
+(1) An employer shall not discriminate directly or indirectly against an employee or prospective
+employee on grounds of race, colour, sex, language, religion, political or other opinion,
+nationality, ethnic or social origin, disability, pregnancy, mental status, or HIV status.
+
+(2) Any employment policy, criteria or practice that is apparently neutral but in practice
+disadvantages employees on a prohibited ground is indirect discrimination unless it can be
+justified on objective grounds.
+
+PART III — EMPLOYMENT CONTRACTS
+
+7. Form of contract
+(1) An employment contract may be oral or in writing, but a written statement of particulars
+must be provided to employees working for more than one month.
+
+(2) The written statement of particulars shall include:
+    (a) the name and address of the employer;
+    (b) the name of the employee and their job title;
+    (c) the date of commencement of employment;
+    (d) the place of work;
+    (e) the wages or salary;
+    (f) the hours of work;
+    (g) the leave entitlement;
+    (h) the notice period required to terminate the contract.
+
+8. Probationary period
+(1) A contract of service may include a probationary period not exceeding six months.
+
+(2) During the probationary period, either party may terminate the contract on not less than
+seven days' notice or payment in lieu of notice.
+
+(3) A probationary period may be extended by mutual agreement but the total probationary period
+shall not exceed twelve months.
+
+PART IV — TERMINATION AND DISMISSAL
+
+41. Summary dismissal
+(1) An employer is entitled to summarily dismiss an employee without notice or payment in lieu
+of notice if the employee:
+    (a) wilfully disobeys a lawful and reasonable order of the employer;
+    (b) is guilty of gross misconduct;
+    (c) is absent from work without permission or reasonable cause;
+    (d) is guilty of a criminal offence related to employment.
+
+(2) Before summarily dismissing an employee, the employer shall:
+    (a) inform the employee of the reasons for the intended dismissal;
+    (b) give the employee an opportunity to respond to the allegations against them;
+    (c) genuinely consider the employee's response before making the decision.
+
+42. Termination on notice
+(1) Either party to a contract of service may terminate the contract by giving notice in writing
+to the other party.
+
+(2) The minimum notice periods are:
+    (a) where the employee has been employed for a period not exceeding two months — twenty-eight days;
+    (b) where the employee has been employed for two months or more — thirty days.
+
+(3) An employer may, instead of giving notice, pay the employee the wages the employee would have
+received during the notice period (payment in lieu of notice).
+
+43. Valid reason for termination
+(1) An employer shall not terminate a contract of service unless there is valid reason for the
+termination connected with the employee's capacity, conduct, or compatibility, or based on the
+operational requirements of the employer.
+
+(2) The employer bears the burden of proving the valid reason for termination.
+
+(3) Where there is no valid reason for termination, or where the procedural requirements have
+not been followed, the termination is unfair.
+
+44. Unfair termination
+(1) A termination is unfair if the employer fails to prove:
+    (a) that there was a valid reason for the termination; and
+    (b) that the employee was notified of the reason and given an opportunity to respond.
+
+(2) Where an employee is unfairly terminated, the Industrial Court may order reinstatement,
+re-engagement, or compensation.
+
+(3) Compensation for unfair dismissal shall not exceed twelve months' gross wages.
+
+45. Redundancy
+(1) An employer may terminate an employee's contract by reason of redundancy where:
+    (a) the employer is reorganising the enterprise;
+    (b) the employer is reducing the work force;
+    (c) the position has been eliminated.
+
+(2) Before declaring redundancy, the employer shall notify the employee and the relevant union
+(if any) and attempt to avoid or minimize redundancies.
+
+(3) A redundant employee is entitled to severance pay of not less than fifteen days' pay for each
+completed year of service.
+
+PART V — WAGES AND REMUNERATION
+
+48. Payment of wages
+(1) An employer shall pay an employee their wages in full on the agreed payment date.
+
+(2) An employer shall not make deductions from wages except in the prescribed circumstances.
+
+(3) Wages are a debt owed by the employer to the employee and are recoverable in court.
+
+PART VI — LEAVE
+
+28. Annual leave
+(1) An employee who has worked for a continuous period of not less than one year is entitled
+to not less than twenty-one working days of annual leave with full pay.
+
+(2) Leave shall be granted at the time agreed between the employer and the employee.
+
+29. Sick leave
+(1) An employee is entitled to sick leave with full pay for not less than seven days, and
+thereafter to sick leave with half pay for not less than seven days in each period of twelve
+consecutive months of service.
+
+PART VII — REMEDIES AND ENFORCEMENT
+
+76. Remedies for breach of employment contract
+(1) An employee who has suffered a breach of their employment contract may apply to the
+Employment and Labour Relations Court for:
+    (a) a declaration that the breach has occurred;
+    (b) reinstatement or re-engagement;
+    (c) compensation for damages suffered;
+    (d) payment of outstanding wages and benefits.
+
+(2) The Employment and Labour Relations Court has exclusive jurisdiction over employment disputes.
+
+77. Limitation period
+Claims under this Act must be brought within three years from the date the cause of action arose.
