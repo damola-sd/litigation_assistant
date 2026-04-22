@@ -2,21 +2,11 @@ import json
 
 from openai import AsyncOpenAI
 
+from src.agents.prompts import QA_PROMPT
 from src.core.config import settings
 from src.schemas.ai_schemas import DraftingResult, ExtractionResult, QAResult
 
 _client = AsyncOpenAI(api_key=settings.openai_api_key)
-
-_SYSTEM = """You are a legal QA auditor. Review the drafted brief against the original facts.
-Identify any hallucinations (claims in the draft not supported by the source facts) or logical gaps.
-Return valid JSON matching this exact schema:
-{
-  "risk_level": "LOW|MEDIUM|HIGH",
-  "hallucination_warnings": ["any claims not supported by the source facts"],
-  "missing_logic": ["logical gaps in the brief's arguments"],
-  "risk_notes": ["general risk observations"]
-}
-Be rigorous — this brief may be filed in court."""
 
 
 async def run_qa_agent(
@@ -31,7 +21,7 @@ async def run_qa_agent(
         model="gpt-4o-mini",
         response_format={"type": "json_object"},
         messages=[
-            {"role": "system", "content": _SYSTEM},
+            {"role": "system", "content": QA_PROMPT},
             {"role": "user", "content": user_content},
         ],
         temperature=0.1,
