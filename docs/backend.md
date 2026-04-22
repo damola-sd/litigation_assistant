@@ -12,7 +12,7 @@
 4. [SSE Stream Format](#4-sse-stream-format)
 5. [Database Schema](#5-database-schema)
 6. [AI Agent Pipeline](#6-ai-agent-pipeline)
-7. [Integration Guide — Per Teammate](#7-integration-guide)
+7. [Integration Guide](#7-integration-guide)
 8. [Environment Variables](#8-environment-variables)
 
 ---
