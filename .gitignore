@@ -33,3 +33,4 @@ data/vector_db/*
 Backend_walkthrough.md
 
 backend/*.db
+backend/*.coverage
