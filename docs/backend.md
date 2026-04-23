@@ -63,7 +63,7 @@ curl "http://localhost:8000/api/v1/cases" -H "X-User-Id: alice"
 curl "http://localhost:8000/api/v1/cases/<case_id>" -H "X-User-Id: alice"
 ```
 
-> **Previous doc version:** JSON `raw_case_text` examples and mixed header casing are kept for comparison in [`docs/archive/backend.md.pre-audit-2026-04-21.md`](./archive/backend.md.pre-audit-2026-04-21.md).
+> **Note:** Earlier JSON `raw_case_text` examples and mixed header casing referenced by a previous archived doc version are not linked here because the archive file is not present in this repository.
 
 ---
 
