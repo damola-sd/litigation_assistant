@@ -34,3 +34,12 @@ Backend_walkthrough.md
 
 backend/*.db
 backend/*.coverage
+
+# Terraform
+*.tfvars
+!*.tfvars.example
+.terraform/
+.terraform.**
+terraform.tfstate.d/
+*.tfstate
+*.tfstate.backup
