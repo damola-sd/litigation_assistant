@@ -1,4 +1,3 @@
-from typing import Union
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -13,11 +12,11 @@ class Settings(BaseSettings):
     openrouter_api_key: str = ""
     model: str = "gpt-4o"
     clerk_jwks_url: str = ""
-    allowed_origins: Union[list[str], str] = ["http://localhost:3000"]
+    allowed_origins: list[str] | str = ["http://localhost:3000"]
 
     @field_validator("allowed_origins", mode="before")
     @classmethod
-    def parse_allowed_origins(cls, v: Union[str, list]) -> list[str]:
+    def parse_allowed_origins(cls, v: str | list) -> list[str]:
         if isinstance(v, str):
             return [origin.strip() for origin in v.split(",") if origin.strip()]
         return v
