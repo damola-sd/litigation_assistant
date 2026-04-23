@@ -30,7 +30,13 @@ data/vector_db/*
 .idea/
 .vscode/
 
+# Documentation
 Backend_walkthrough.md
+#PROJECT_WALKTHROUGH.md
+Rubric.md
 
+# Database
 backend/*.db
+
+# Coverage
 backend/*.coverage
