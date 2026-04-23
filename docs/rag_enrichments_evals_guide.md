@@ -2,7 +2,7 @@
 
 > **What this covers:** How to expand the RAG corpus (`data/raw/` → ingestion → `data/vector_db/`), how **`backend/evals/golden_cases.json`** is structured (the repo currently ships **11** golden cases — 3 seed scenarios plus **8** additional statutes‑grounded cases), optional manual UI checks, and **Vitest** setup for frontend unit/component tests.
 
-> **Previous revision:** [`docs/archive/rag_enrichments_evals_guide.md.pre-audit-2026-04-22.md`](./archive/rag_enrichments_evals_guide.md.pre-audit-2026-04-22.md) (older “8 new cases only” wording and session-specific framing).
+> **Previous revision:** Older versions used “8 new cases only” wording and session-specific framing; the archived revision is not included in this repository.
 
 ---
 
