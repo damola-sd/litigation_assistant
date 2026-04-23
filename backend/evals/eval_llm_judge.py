@@ -66,10 +66,7 @@ async def _judge_brief(case_text: str, brief_markdown: str) -> dict:
             {"role": "system", "content": JUDGE_SYSTEM_PROMPT},
             {
                 "role": "user",
-                "content": (
-                    f"Source case:\n{case_text}\n\n"
-                    f"AI-generated brief:\n{brief_markdown}"
-                ),
+                "content": (f"Source case:\n{case_text}\n\nAI-generated brief:\n{brief_markdown}"),
             },
         ],
         temperature=0.0,
@@ -102,7 +99,9 @@ async def run_eval(threshold: float) -> bool:
             composite = (completeness + factual + actionability) / 3.0
             composite_scores.append(composite)
 
-            print(f"    completeness={completeness}/5  factual_ground={factual}/5  actionability={actionability}/5")
+            print(
+                f"    completeness={completeness}/5  factual_ground={factual}/5  actionability={actionability}/5"
+            )
             print(f"    composite={composite:.2f}/5")
             print(f"    comment: {scores.get('brief_comments', '')}")
         except Exception as exc:
@@ -121,7 +120,12 @@ async def run_eval(threshold: float) -> bool:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="LLM-as-judge pipeline evaluation")
-    parser.add_argument("--threshold", type=float, default=3.0, help="Minimum mean composite score to pass (default: 3.0)")
+    parser.add_argument(
+        "--threshold",
+        type=float,
+        default=3.0,
+        help="Minimum mean composite score to pass (default: 3.0)",
+    )
     args = parser.parse_args()
 
     print("LLM-as-judge eval — full pipeline\n")

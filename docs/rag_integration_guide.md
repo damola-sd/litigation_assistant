@@ -1,9 +1,11 @@
 # Litigation Prep Assistant — RAG Integration Guide
 
-**Branch:** `rag-basic`  
+**Scope:** This guide tracks **`main`** — RAG (Chroma + embeddings), the five-stage analyze pipeline, SSE, Clerk JWT + dev `X-User-Id`, and the current test suite.  
 **Audience:** Beginner-friendly. Every code snippet is explained line by line.  
 **What this covers:** How the RAG pipeline works, how to run everything locally,
-how to test it, and what still needs to be done for production.
+how to test it, and remaining production hardening.
+
+> **Previous revision:** [`docs/archive/rag_integration_guide.md.pre-audit-2026-04-22.md`](./archive/rag_integration_guide.md.pre-audit-2026-04-22.md) (older branch label, auth stub narrative, stale test counts).
 
 ---
 
@@ -15,7 +17,7 @@ how to test it, and what still needs to be done for production.
 4. [RAG deep-dive](#4-rag-deep-dive)
 5. [How SSE streaming works](#5-how-sse-streaming-works)
 6. [Local setup — step by step](#6-local-setup--step-by-step)
-7. [Testing guide](#7-testing-guide)
+7. [Testing guide](#7-testing-guide) (includes [§7.5 Golden-case evals & GitHub Actions](#75-golden-case-evals--github-actions))
 8. [Remaining integration steps](#8-remaining-integration-steps)
 9. [Known issues and security notes](#9-known-issues-and-security-notes)
 
@@ -23,8 +25,7 @@ how to test it, and what still needs to be done for production.
 
 ## 1. What we built and why
 
-The system transforms raw case text (or a PDF/txt file) into a structured Kenyan
-legal brief using four AI agents running sequentially.
+The system transforms raw case text (and optional **PDF / TXT / MD** uploads) into a structured Kenyan legal brief using **five sequential pipeline stages**: Extraction → **RAG retrieval** → Strategy → Drafting → QA. (RAG is retrieval + context injection; the LLM “agents” are the four model-backed steps plus the fixed retrieval step.)
 
 ```
 User types case facts
@@ -72,15 +73,15 @@ litigation-prep-assistant/
 │   │   │   ├── ai_schemas.py   ← Pydantic shapes for each agent's output
 │   │   │   └── api_schemas.py  ← Pydantic shapes for HTTP requests/responses
 │   │   ├── agents/
-│   │   │   ├── orchestrator.py ← runs all 5 steps, streams SSE, writes DB
-│   │   │   ├── extraction.py   ← Agent 1: fact extraction (gpt-4o-mini)
-│   │   │   ├── strategy.py     ← Agent 2: legal strategy (gpt-4o)
-│   │   │   ├── drafting.py     ← Agent 3: brief drafting (gpt-4o)
-│   │   │   ├── qa.py           ← Agent 4: quality audit (gpt-4o-mini)
+│   │   │   ├── orchestrator.py ← runs extraction→RAG→strategy→drafting→QA; streams SSE; writes DB
+│   │   │   ├── extraction.py   ← Step 1: fact extraction (gpt-4o-mini + instructor)
+│   │   │   ├── strategy.py     ← Step 3: legal strategy (gpt-4o + instructor)
+│   │   │   ├── drafting.py     ← Step 4: brief drafting (gpt-4o, markdown)
+│   │   │   ├── qa.py           ← Step 5: quality audit (gpt-4o-mini + instructor)
 │   │   │   ├── format_markdown.py  ← converts agent outputs to Markdown
 │   │   │   └── prompts/        ← system prompts for each agent
 │   │   ├── api/
-│   │   │   ├── dependencies.py ← auth stub (reads x-user-id header)
+│   │   │   ├── dependencies.py ← Clerk JWT (+ dev `X-User-Id` when not production)
 │   │   │   ├── routes_analyze.py   ← POST /api/v1/analyze
 │   │   │   ├── routes_cases.py     ← GET/DELETE /api/v1/cases
 │   │   │   └── routes_auth.py      ← GET /api/v1/me
@@ -178,26 +179,20 @@ browser disconnects mid-stream.
 Each agent is a single async function that calls OpenAI and returns a typed
 Pydantic model.
 
-**Extraction agent** (`agents/extraction.py`):
+**Extraction agent** (`agents/extraction.py`) — **instructor** wraps the shared async client and returns a typed **`ExtractionResult`** (with automatic retry on malformed structured output):
+
 ```python
-async def run_extraction_agent(case_text: str) -> ExtractionResult:
-    response = await _client.chat.completions.create(
-        model="gpt-4o-mini",
-        response_format={"type": "json_object"},   # forces strict JSON output
-        messages=[
-            {"role": "system", "content": EXTRACTION_PROMPT},
-            {"role": "user",   "content": f"Extract structured information from:\n\n{case_text}"},
-        ],
-        temperature=0.1,   # low temperature = more deterministic output
-    )
-    data = json.loads(response.choices[0].message.content)
-    return ExtractionResult(**data)   # Pydantic validates the shape
+client = instructor.from_openai(get_async_client(), mode=instructor.Mode.JSON)
+result, completion = await client.chat.completions.create_with_completion(
+    model="gpt-4o-mini",
+    response_model=ExtractionResult,
+    messages=[...],  # system prompt + few-shot pair + user case text
+    temperature=0.1,
+)
+return result
 ```
 
-`response_format={"type": "json_object"}` tells OpenAI to return only valid JSON,
-no prose. Pydantic then validates that the JSON matches `ExtractionResult` — if
-a field is missing or the wrong type, you get an error immediately instead of
-silently passing bad data to the next agent.
+See the file for the full message list, **`EXTRACTION_PROMPT_VERSION`**, and **`llm_call_*`** structlog lines.
 
 **Why different models for different agents?**
 
@@ -383,9 +378,11 @@ This is called during every analysis. It must be **async** because the web serve
 is async and we cannot block the event loop.
 
 ```python
-# src/rag/retriever.py
+# src/rag/retriever.py (simplified)
 
-_openai = AsyncOpenAI(api_key=settings.openai_api_key)
+from src.core.openai_client import get_async_client
+
+_openai = get_async_client()  # process-wide AsyncOpenAI singleton (tests patch `src.rag.retriever._openai`)
 
 async def rag_retrieve(query: str, n_results: int = 5) -> list[str]:
     # Guard: empty queries return nothing without hitting OpenAI
@@ -426,17 +423,15 @@ thread, freeing the event loop for other work.
 ### 4.6 How RAG plugs into the orchestrator
 
 ```python
-# agents/orchestrator.py (Step 1 — RAG retrieval)
+# agents/orchestrator.py (after extraction completes — RAG is step_index 1)
 
 step = await _start_step(db, case, "rag_retrieval", 1)
-chunks = await rag_retrieve(request.raw_case_text)   # ← calls retriever.py
-rag_result = {"chunks": chunks}
-await _finish_step(db, step, rag_result)
+chunks = await rag_retrieve(request.raw_case_text)   # ← retriever.py
+await _finish_step(db, step, {"chunks": chunks})
 yield _markdown_section("rag_retrieval", "Precedent retrieval", rag_chunks_to_markdown(chunks))
 
-# Step 2 — Strategy (receives the chunks)
 step = await _start_step(db, case, "strategy", 2)
-strategy = await run_strategy_agent(extraction, chunks)   # ← chunks injected here
+strategy = await run_strategy_agent(extraction, chunks)
 ```
 
 When `chunks` is empty (vector store not built yet), `run_strategy_agent` still
@@ -637,7 +632,7 @@ cd backend
 uv run pytest tests/ -v
 ```
 
-All 133 tests should pass in under 3 seconds. Every agent, database call, and RAG
+All **143** tests should pass in a few seconds. Every agent, database call, and RAG
 component is mocked — no network, no OpenAI, no cost.
 
 **If tests pass: your environment is configured correctly.**
@@ -743,15 +738,16 @@ means the backend is not running or is on a different port than `NEXT_PUBLIC_API
 
 ### 7.1 What is being tested
 
-The project has 133 automated tests split across five files:
+The project has **143** automated tests split across **six** files (verified 2026-04-22):
 
 | File | Tests | What it covers |
-|------|-------|----------------|
+|------|------:|----------------|
 | `test_health.py` | 3 | `/health` liveness endpoint |
-| `test_me.py` | 5 | `/me` identity endpoint |
-| `test_analyze.py` | 35 | Full SSE pipeline — input validation, event shapes, error handling, per-step content, DB persistence |
-| `test_history.py` | 21 | History endpoints — user isolation, ordering, search, delete |
-| `test_rag.py` | 69 | `chunk_text`, `rag_retrieve`, `ingest_documents`, + integration (RAG chunks flow to strategy agent) |
+| `test_me.py` | 5 | `GET /api/v1/me` — dev `X-User-Id` / default user behaviour |
+| `test_analyze.py` | 45 | SSE pipeline — multipart validation, `markdown_section` / `complete` / `error`, DB persistence, delete |
+| `test_history.py` | 26 | `GET`/`DELETE` cases — isolation, ordering, title search |
+| `test_rag.py` | 38 | Chunking, `rag_retrieve`, ingestion helpers, strategy receives chunks |
+| `test_schemas.py` | 26 | Pydantic AI / API schema unit tests |
 
 ### 7.2 How mocking works
 
@@ -778,7 +774,7 @@ async def client(tmp_path):
 that returns the test database. Every test that uses the `client` fixture gets its
 own isolated, empty database.
 
-**2. AI agents:** all four agents and RAG are patched at the orchestrator level.
+**2. AI agents + RAG:** extraction, strategy, drafting, QA, and **`rag_retrieve`** are patched at the **`orchestrator`** import site where those names are bound.
 
 ```python
 # conftest.py (simplified)
@@ -862,59 +858,26 @@ What to check in the output:
 4. **qa section** should show a `risk_level` of LOW, MEDIUM, or HIGH.
 5. **Final event** should be `{"type":"complete","case_id":"<uuid>"}`.
 
+### 7.5 Golden-case evals & GitHub Actions
+
+**GitHub Actions (`evals.yml`):** On path-filtered pushes to **`main`**, **`eval_extraction`** runs against every row in **`backend/evals/golden_cases.json`** (**11** golden cases). The **`extraction-eval`** job uses **`continue-on-error: true`**, so the workflow does not block merges when the eval fails or **`OPENAI_API_KEY`** is missing—use the job log for pass/fail. To block merges on golden-case regression, add **`OPENAI_API_KEY`** as a repo secret and remove **`continue-on-error`**. **`eval_llm_judge`** runs only via **Actions → Evaluations → Run workflow** with the optional checkbox (~**$0.30+** per full run). See **`docs/PROJECT_WALKTHROUGH.md`** §22 for tables and rubric mapping.
+
 ---
 
 ## 8. Remaining integration steps
 
-### 8.1 Backend Clerk JWT verification (security — pre-production)
+### 8.1 Backend Clerk JWT verification
 
-**Current state:** The backend reads `x-user-id` from the HTTP header and trusts
-it blindly. The frontend sends the real Clerk user ID there, so the system works
-correctly. However, anyone who knows the API URL could send any user ID in that
-header and read another user's data — there is no signature check.
+**Implemented:** `src/core/security.py` exposes **`validate_clerk_jwt`**, which loads Clerk’s **JWKS** (with a short TTL cache) and verifies **RS256** tokens. `src/api/dependencies.py` requires a **`Authorization: Bearer <token>`** header in **production** (`APP_ENV=production`). In **non-production**, omitting `Authorization` still allows **`X-User-Id`** so local curl/tests work without live Clerk sessions.
 
-**What needs to change:** Replace the body of `src/api/dependencies.py`:
+**Production checklist**
 
-```python
-# CURRENT (stub — trusts header blindly)
-async def get_current_user(x_user_id: str = Header(default="dev-user-001")) -> CurrentUser:
-    return CurrentUser(user_id=x_user_id)
+- Set `CLERK_JWKS_URL` (and related Clerk env vars from `.env.example`).
+- Ensure the frontend sends **Bearer** tokens for real users (dev may continue to use `X-User-Id` only in local/staging).
 
-# TARGET (validates Clerk JWT signature)
-async def get_current_user(authorization: str = Header(...)) -> CurrentUser:
-    token = authorization.removeprefix("Bearer ")
-    claims = await validate_clerk_jwt(token)   # implement in src/core/security.py
-    return CurrentUser(user_id=claims["sub"], email=claims.get("email"))
-```
+**Security note:** the `X-User-Id` shortcut must **never** be relied on in production traffic — it is not cryptographically bound to Clerk.
 
-`validate_clerk_jwt` fetches Clerk's public keys from `CLERK_JWKS_URL` and uses
-them to verify that the token was actually signed by your Clerk instance — not just
-any string someone typed.
-
-**Backend `.env` values needed (from John's Clerk dashboard):**
-```
-CLERK_JWKS_URL=https://your-instance.clerk.accounts.dev/.well-known/jwks.json
-CLERK_ISSUER=https://your-instance.clerk.accounts.dev
-```
-
-**Frontend change needed:** The frontend currently sends `X-User-Id: <clerk_id>`.
-After backend JWT is wired, it needs to send `Authorization: Bearer <jwt_token>`:
-
-```typescript
-// lib/api.ts — after Clerk JWT is wired
-import { useAuth } from "@clerk/nextjs";
-const { getToken } = useAuth();
-const token = await getToken();
-
-headers: { "Authorization": `Bearer ${token}` }
-```
-
-**No other files change.** Every route that uses `Depends(get_current_user)` gets
-real auth automatically. All existing tests continue to pass because they use the
-`x-user-id` header via dependency overrides.
-
-**Who does this:** John (frontend token change) + whoever implements `validate_clerk_jwt`
-in `src/core/security.py`.
+**Frontend:** `frontend/src/lib/api.ts` currently attaches **`X-User-Id`** for the analyze stream when a string is passed in. For production, extend the same `fetch` calls to add **`Authorization: Bearer ${await getToken()}`** from Clerk’s `useAuth().getToken()` once you want server-side JWT enforcement end-to-end. Tests keep using **`X-User-Id`** / overrides — no change required there.
 
 ### 8.2 Postgres + Alembic migrations (pre-production)
 
@@ -924,11 +887,7 @@ writes, no hosted service).
 
 **What needs to change (Sodiq's task):**
 
-**Step 1 — Add asyncpg to dependencies:**
-```toml
-# pyproject.toml
-"asyncpg>=0.29.0",
-```
+**Step 1 — Driver dependency:** `asyncpg` is already listed in `backend/pyproject.toml`.
 
 **Step 2 — Set DATABASE_URL in production:**
 ```
@@ -956,19 +915,11 @@ as a new Alembic migration (not a direct change to `models.py`).
 
 ### 8.3 Real Kenyan legal corpus
 
-**Current state:** `data/raw/` contains three short placeholder files covering
-the Law of Contract Act, Land Act, and Employment Act. The RAG pipeline works
-correctly end-to-end but the retrieved chunks are placeholder text, not real
-statute language.
+**Current state:** `data/raw/` ships with **15** plain-text statute sources (Contract, Land, Employment, Constitution, Civil Procedure, etc.). Ingestion embeds them into **`data/vector_db/`**; retrieval quality grows as the corpus grows.
 
-**What needs to change:**
+**To expand further:**
 
-1. Add real Kenyan statute and case law files to `data/raw/`:
-   - Download from [Kenya Law](https://www.kenyalaw.org) (eKLR)
-   - Preferred formats: `.txt` or `.md`
-   - Suggested sources: Law of Contract Act Cap 23, Land Act No. 6 of 2012,
-     Employment Act No. 11 of 2007, Civil Procedure Act Cap 21,
-     selected High Court judgments
+1. Add more `.txt` / `.md` sources from [Kenya Law](https://www.kenyalaw.org) (eKLR) or internal brief banks (respect copyright / usage terms).
 
 2. Re-run ingestion:
    ```bash

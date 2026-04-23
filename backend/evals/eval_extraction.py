@@ -32,9 +32,7 @@ def _check(case_id: str, extraction: object, expected: dict) -> list[str]:
     # Minimum fact count
     min_facts = expected.get("min_core_facts", 0)
     if len(facts) < min_facts:
-        failures.append(
-            f"[{case_id}] core_facts: expected >= {min_facts}, got {len(facts)}"
-        )
+        failures.append(f"[{case_id}] core_facts: expected >= {min_facts}, got {len(facts)}")
 
     # Required entity names present
     entity_names = {e.name.lower() for e in entities}

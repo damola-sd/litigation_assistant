@@ -1,81 +1,97 @@
 # Backend (FastAPI)
 
-Python service for the Litigation Prep Assistant: planned responsibilities include AI orchestration, Clerk JWT validation, persistence, and structured responses for `/analyze` and history endpoints. This package is currently a **scaffold** with stub routes.
+Python **FastAPI** service for the Litigation Prep Assistant: **Clerk JWT** auth (with **dev `X-User-Id` fallback**), **multipart** case intake, **SSE** streaming of the five-step agent pipeline, **SQLAlchemy async** persistence, **ChromaDB** RAG, and **structlog** logging.
+
+> **Previous version:** the older “scaffold” README is preserved for diff review at [`docs/archive/backend-README.md.pre-audit-2026-04-21.md`](../docs/archive/backend-README.md.pre-audit-2026-04-21.md).
+
+---
 
 ## Requirements
 
 - Python **3.11+**
-- [uv](https://docs.astral.sh/uv/) (recommended for installs and virtual environments)
+- **[uv](https://docs.astral.sh/uv/)** (recommended)
 
-## Install
+---
 
-From this directory (`backend/`):
+## Install & run
 
 ```bash
+cd backend
 uv sync
+uv run dev
 ```
 
-That creates `.venv/`, resolves dependencies in `uv.lock`, and installs the project in editable mode.
-
-### Using `requirements.txt` only
-
-If you prefer not to use `pyproject.toml` for installs:
-
-```bash
-uv venv
-uv pip install -r requirements.txt
-```
-
-Alternatively, with plain pip:
-
-```bash
-python -m venv .venv
-source .venv/bin/activate   # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-```
-
-## Run the dev server
+Equivalent:
 
 ```bash
 uv run uvicorn src.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-This runs Uvicorn with reload on `http://127.0.0.1:8000`. Equivalent manual command:
+- API: `http://127.0.0.1:8000/docs` (Swagger) and `/redoc`
+- Logging: configured at import in `src/main.py` (`configure_logging()`)
+
+---
+
+## Tests & lint (match CI)
 
 ```bash
-uv run uvicorn src.main:app --reload --host 127.0.0.1 --port 8000
+uv run pytest tests/ -q          # 143 tests
+uv run ruff check src tests
+uv run ruff format --check src tests
+uv run mypy src --ignore-missing-imports
+uv run pytest tests/ --cov=src --cov-fail-under=70 -q
 ```
 
-## Project layout
+Root `main.py` is a one-line **Uvicorn entry** (`uvicorn main:app`); Ruff allows the re-export via `# noqa: F401`.
 
-```
-backend/
-├── src/
-│   ├── main.py              # FastAPI app + router registration
-│   ├── api/                 # Route modules and auth dependencies
-│   ├── core/                # Settings and security placeholders
-│   ├── database/            # SQLAlchemy engine + models
-│   ├── agents/              # Extraction/Strategy/Drafting/QA scaffolds
-│   ├── rag/                 # RAG ingestion/retriever/vector store stubs
-│   └── schemas/             # API + AI response models
-├── app/                     # Legacy scaffold kept temporarily for compatibility
-├── pyproject.toml           # Project metadata and dependencies (uv)
-├── requirements.txt         # Same dependencies for pip-based workflows
-└── uv.lock                  # Locked versions (uv)
+---
+
+## Golden-case evals & GitHub Actions
+
+**GitHub Actions (`evals.yml`):** On path-filtered pushes to **`main`**, **`eval_extraction`** runs against every row in **`backend/evals/golden_cases.json`** (**11** golden cases). The **`extraction-eval`** job uses **`continue-on-error: true`**, so the workflow does not block merges when the eval fails or **`OPENAI_API_KEY`** is missing—use the job log for pass/fail. To block merges on golden-case regression, add **`OPENAI_API_KEY`** as a repo secret and remove **`continue-on-error`**. **`eval_llm_judge`** runs only via **Actions → Evaluations → Run workflow** with the optional checkbox (~**$0.30+** per full run). See **`docs/PROJECT_WALKTHROUGH.md`** §22 for tables and rubric mapping.
+
+```bash
+cd backend
+uv run python -m evals.eval_extraction
+uv run python -m evals.eval_llm_judge   # local only unless you dispatch the workflow
 ```
 
-## API surface (planned)
+---
+
+## Layout (`backend/src/`)
+
+| Path | Role |
+|------|------|
+| `src/main.py` | FastAPI app, CORS, **HTTP request logging** middleware, global exception handler, routers |
+| `src/core/config.py` | **pydantic-settings** (`DATABASE_URL`, `MODEL`, Clerk, CORS, timeouts, `APP_ENV`, `LOG_LEVEL`) |
+| `src/core/logging.py` | **structlog** setup (JSON in production, console in dev) |
+| `src/core/openai_client.py` | Shared OpenAI / OpenRouter client |
+| `src/core/security.py` | Clerk **JWKS** JWT validation |
+| `src/api/` | `routes_analyze`, `routes_cases`, `routes_auth`, `dependencies` |
+| `src/agents/` | Orchestrator + extraction / strategy / drafting / QA + `prompts/` + `format_markdown.py` |
+| `src/rag/` | `retriever.py`, `vector_store.py`, `ingestion.py` |
+| `src/database/` | Async engine, `get_db`, models |
+| `src/schemas/` | API + AI Pydantic models |
+| `evals/` | **`golden_cases.json`** + **`eval_extraction`** / **`eval_llm_judge`** (see **Golden-case evals & GitHub Actions** above) |
+| `tests/` | Pytest async suite (143 tests) |
+
+Longer API and SSE details: **[`docs/backend.md`](../docs/backend.md)**. Full narrative: **[`docs/PROJECT_WALKTHROUGH.md`](../docs/PROJECT_WALKTHROUGH.md)**.
+
+---
+
+## API (summary)
 
 | Method | Path | Notes |
 |--------|------|--------|
-| `GET` | `/health` | Liveness check (returns `{"status":"ok"}`). |
-| `GET` | `/me` | User profile from Clerk JWT (stub). |
-| `POST` | `/api/v1/analyze` | Multipart form: `title` (required), `case_text` (optional), `case_file` (optional `.txt`/`.md`/`.pdf`). At least one of `case_text` or file body must yield text; file contents are appended after typed text. Returns SSE. |
-| `GET` | `/api/v1/cases` | List cases for the user. |
-| `GET` | `/api/v1/cases/{id}` | Single case with agent steps. |
+| `GET` | `/health` | No auth |
+| `GET` | `/api/v1/me` | Clerk **Bearer** token; in non-production, **`X-User-Id`** accepted if `Authorization` omitted |
+| `POST` | `/api/v1/analyze` | **Multipart:** `title` (required), `case_text` (optional), `case_file` (optional `.txt`/`.md`/`.pdf`); at least one of typed text or file must yield non-empty merged text. **SSE** response |
+| `GET` | `/api/v1/cases` | List cases (optional `?q=` title filter) |
+| `GET` | `/api/v1/cases/{id}` | Case + steps |
+| `DELETE` | `/api/v1/cases/{id}` | Delete case and steps |
 
-Interactive docs: `http://127.0.0.1:8000/docs` (Swagger UI) and `http://127.0.0.1:8000/redoc`.
+---
 
-## Environment variables
+## Environment
 
-Not wired yet. When you implement auth and data layers, you will typically add variables such as database URL, Clerk JWKS URL or secrets, and AI provider keys. Use `app/core/config.py` (or pydantic-settings) as the single place to load them.
+Copy **`backend/.env.example`** → **`.env`**. Key variables are documented there (`OPENAI_API_KEY` or `OPENROUTER_API_KEY`, `MODEL`, `DATABASE_URL`, `CLERK_JWKS_URL`, `ALLOWED_ORIGINS`, etc.).
