@@ -5,7 +5,7 @@
 **What this covers:** How the RAG pipeline works, how to run everything locally,
 how to test it, and remaining production hardening.
 
-> **Previous revision:** [`docs/archive/rag_integration_guide.md.pre-audit-2026-04-22.md`](./archive/rag_integration_guide.md.pre-audit-2026-04-22.md) (older branch label, auth stub narrative, stale test counts).
+> **Previous revision:** `rag_integration_guide.md.pre-audit-2026-04-22.md` (not included in this repository snapshot; older branch label, auth stub narrative, stale test counts).
 
 ---
 
