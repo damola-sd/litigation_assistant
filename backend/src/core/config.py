@@ -1,3 +1,4 @@
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -11,7 +12,14 @@ class Settings(BaseSettings):
     openrouter_api_key: str = ""
     model: str = "gpt-4o"
     clerk_jwks_url: str = ""
-    allowed_origins: list[str] = ["http://localhost:3000"]
+    allowed_origins: list[str] | str = ["http://localhost:3000"]
+
+    @field_validator("allowed_origins", mode="before")
+    @classmethod
+    def parse_allowed_origins(cls, v: str | list) -> list[str]:
+        if isinstance(v, str):
+            return [origin.strip() for origin in v.split(",") if origin.strip()]
+        return v
     # Per-step wall-clock timeout in seconds.  Keeps a hung OpenAI call from
     # stalling the SSE stream indefinitely.
     agent_step_timeout_seconds: int = 120

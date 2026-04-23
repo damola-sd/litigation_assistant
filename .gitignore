@@ -38,5 +38,14 @@ Rubric.md
 # Database
 backend/*.db
 
+# Terraform
+*.tfvars
+!*.tfvars.example
+.terraform/
+.terraform.**
+terraform.tfstate.d/
+*.tfstate
+*.tfstate.backup
+
 # Coverage
 backend/*.coverage
