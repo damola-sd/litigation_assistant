@@ -14,6 +14,7 @@
 6. [AI Agent Pipeline](#6-ai-agent-pipeline)
 7. [Integration Guide](#7-integration-guide)
 8. [Environment Variables](#8-environment-variables)
+9. [Golden-case evals & GitHub Actions](#9-golden-case-evals--github-actions)
 
 ---
 
@@ -34,29 +35,35 @@ Make sure `backend/.env` contains your OpenAI API key before starting the server
 OPENAI_API_KEY=sk-...
 ```
 
+Golden-case eval jobs in GitHub Actions are documented in **[§9](#9-golden-case-evals--github-actions)** (same content as **`docs/PROJECT_WALKTHROUGH.md`** §22).
+
 Delete `backend/litigation.db` if you get a database error on first run — the schema may have changed.
 
 ### Smoke test with curl
+
+`POST /api/v1/analyze` is **`multipart/form-data`** (same as the Next.js client in `frontend/src/lib/api.ts`), not JSON.
 
 ```bash
 # Health check
 curl http://localhost:8000/health
 
-# Who am I
-curl http://localhost:8000/api/v1/me -H "x-user-id: alice"
+# Who am I — in non-production, omitting Bearer falls back to X-User-Id (see dependencies.py)
+curl http://localhost:8000/api/v1/me -H "X-User-Id: alice"
 
-# Run an analysis (streams live)
+# Run an analysis (streams SSE) — title is required; case_text and/or file body must yield text
 curl -N -X POST http://localhost:8000/api/v1/analyze \
-  -H "Content-Type: application/json" \
-  -H "x-user-id: alice" \
-  -d '{"raw_case_text": "On 1 Jan 2024, John signed a contract with ABC Ltd for delivery of goods worth KES 200,000. ABC failed to deliver. John seeks damages."}'
+  -H "X-User-Id: alice" \
+  -F "title=Contract dispute" \
+  -F "case_text=On 1 Jan 2024, John signed a contract with ABC Ltd for delivery of goods worth KES 200,000. ABC failed to deliver. John seeks damages."
 
 # List past cases
-curl http://localhost:8000/api/v1/cases -H "x-user-id: alice"
+curl "http://localhost:8000/api/v1/cases" -H "X-User-Id: alice"
 
-# Case detail (paste case_id from the done event above)
-curl http://localhost:8000/api/v1/cases/<case_id> -H "x-user-id: alice"
+# Case detail (paste case_id from the final {"type":"complete",...} event)
+curl "http://localhost:8000/api/v1/cases/<case_id>" -H "X-User-Id: alice"
 ```
+
+> **Note:** Earlier JSON `raw_case_text` examples and mixed header casing referenced by a previous archived doc version are not linked here because the archive file is not present in this repository.
 
 ---
 
@@ -66,10 +73,13 @@ curl http://localhost:8000/api/v1/cases/<case_id> -H "x-user-id: alice"
 backend/
 ├── main.py              # entry point shim: from src.main import app
 ├── src/
-│   ├── main.py          # FastAPI app, CORS middleware, routers, lifespan hook
+│   ├── main.py          # FastAPI app, CORS, request logging middleware, routers, lifespan
 │   ├── cli.py           # dev server launcher
 │   ├── core/
-│   │   └── config.py    # reads .env, exposes settings singleton
+│   │   ├── config.py       # pydantic-settings
+│   │   ├── logging.py      # structlog
+│   │   ├── openai_client.py
+│   │   └── security.py     # Clerk JWKS JWT validation
 │   ├── database/
 │   │   ├── models.py    # ORM table definitions: User, Case, AgentStep
 │   │   └── session.py   # engine, session factory, get_db, init_db
@@ -83,18 +93,22 @@ backend/
 │   │   ├── qa.py           # GPT-4o-mini: hallucination + logic audit
 │   │   └── orchestrator.py # runs all 5 steps, streams SSE, saves to DB
 │   ├── api/
-│   │   ├── dependencies.py  # auth dependency stub (John replaces with Clerk JWT)
+│   │   ├── dependencies.py  # get_current_user — Clerk JWT + dev X-User-Id fallback
 │   │   ├── routes_analyze.py
 │   │   ├── routes_auth.py
 │   │   └── routes_cases.py
 │   └── rag/
-│       └── retriever.py     # returns [] stub (Amit replaces with ChromaDB)
+│       ├── retriever.py     # embed + Chroma similarity search
+│       ├── vector_store.py
+│       └── ingestion.py
 └── tests/
     ├── conftest.py          # fixtures, mock agent data, helpers
-    ├── test_analyze.py      # 27 tests for POST /api/v1/analyze
-    ├── test_history.py      # 21 tests for case history endpoints
+    ├── test_analyze.py      # 45 tests — analyze SSE, validation, DELETE, etc.
+    ├── test_history.py      # 26 tests — listing, isolation, detail
     ├── test_health.py       # 3 tests
-    └── test_me.py           # 5 tests
+    ├── test_me.py           # 5 tests
+    ├── test_rag.py          # 38 tests — chunking, retriever, ingestion
+    └── test_schemas.py      # 26 tests — Pydantic AI schemas
 ```
 
 ---
@@ -110,9 +124,7 @@ Public. No auth required.
 ---
 
 ### `GET /api/v1/me`
-Returns the authenticated user. Currently reads the `x-user-id` header (stub). John replaces this with Clerk JWT.
-
-**Headers:** `x-user-id: <user_id>` (dev stub) → `Authorization: Bearer <token>` (production)
+Returns the authenticated user. **Production:** requires `Authorization: Bearer <Clerk JWT>` and `CLERK_JWKS_URL` configured. **Non-production:** if `Authorization` is omitted, **`X-User-Id`** is accepted as a dev/test shortcut (`src/api/dependencies.py`).
 
 **Response:**
 ```json
@@ -122,23 +134,23 @@ Returns the authenticated user. Currently reads the `x-user-id` header (stub). J
 ---
 
 ### `POST /api/v1/analyze`
-Runs the full multi-agent pipeline. Returns a Server-Sent Events stream.
+Runs the full multi-agent pipeline. Returns **`text/event-stream`** (SSE).
 
-**Headers:**
-```
-x-user-id: alice
-Content-Type: application/json
-```
+**Content-Type:** `multipart/form-data`
 
-**Request body:**
-```json
-{ "raw_case_text": "Your messy case description here..." }
-```
+**Form fields**
 
-- `raw_case_text` is required. Empty or whitespace-only values return `422`.
-- Sending the old name `case_text` also returns `422`.
+| Field | Required | Notes |
+|-------|----------|--------|
+| `title` | **Yes** | Non-blank string (max 255 chars after trim). |
+| `case_text` | No | Optional typed narrative; may be empty if a file supplies text. |
+| `case_file` | No | Optional `.txt`, `.md`, or `.pdf`; text is extracted and merged with `case_text`. |
 
-**Response:** `text/event-stream` — see [SSE Stream Format](#4-sse-stream-format) below.
+At least one of **`case_text`** or **`case_file`** must yield non-empty merged text after strip/extract; otherwise **422** with a clear `detail` message.
+
+**Auth headers:** same as `/me` (Bearer in prod; dev may use `X-User-Id` when `APP_ENV` is not `production`).
+
+**Response:** SSE — see [SSE Stream Format](#4-sse-stream-format) below.
 
 ---
 
@@ -150,6 +162,7 @@ Returns all cases for the authenticated user, newest first.
 [
   {
     "id": "753fc3cb-17d0-4529-9aaf-2caa8dff611b",
+    "title": "Contract dispute",
     "raw_input": "On 1 Jan 2024, John signed...",
     "status": "COMPLETED",
     "created_at": "2024-01-15T10:30:00+00:00"
@@ -168,6 +181,7 @@ Returns `404` if the case doesn't exist **or** belongs to a different user.
 ```json
 {
   "id": "753fc3cb-...",
+  "title": "Contract dispute",
   "raw_input": "On 1 Jan 2024...",
   "status": "COMPLETED",
   "created_at": "2024-01-15T10:30:00+00:00",
@@ -205,59 +219,72 @@ Returns `404` if the case doesn't exist **or** belongs to a different user.
 
 ---
 
+### `DELETE /api/v1/cases/{case_id}`
+
+Deletes the case and its `agent_steps` for the authenticated user. Returns **404** if the case is missing or not owned by the caller.
+
+---
+
 ## 4. SSE Stream Format
 
-The `/api/v1/analyze` endpoint streams events using the [Server-Sent Events](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events) standard. Each message is a line starting with `data: ` followed by JSON, terminated by a blank line.
+The `/api/v1/analyze` endpoint streams [Server-Sent Events](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events): each message is a line `data: <json>` followed by a blank line (`\n\n`). The orchestrator (`src/agents/orchestrator.py`) **does not** emit legacy `step` / `running` / `completed` envelopes; it emits **rendered Markdown per section** plus terminal events.
 
-> **Frontend note:** Standard `EventSource` does not support POST or custom headers. Use `@microsoft/fetch-event-source` as specified in the FSD.
+> **Frontend note:** `EventSource` only supports GET. This API uses **POST + multipart**; the shipped client uses `fetch` + `ReadableStream` (`frontend/src/lib/api.ts`).
 
-### Step running event
-Emitted immediately when a step starts. Use this to show a spinner.
-```json
-{ "step": "extraction", "status": "running", "step_index": 0 }
-```
+### `markdown_section` (one per completed pipeline stage)
 
-### Step completed event
-Emitted when a step finishes. Contains the full result.
+After each agent step finishes, the client receives a chunk of Markdown suitable for appending to the live brief view:
+
 ```json
 {
-  "step": "extraction",
-  "status": "completed",
-  "step_index": 0,
-  "data": {
-    "core_facts": ["John Kamau signed a contract..."],
-    "entities": [{ "name": "John Kamau", "type": "person", "role": "buyer" }],
-    "chronological_timeline": [{ "date": "15 March 2023", "event": "Agreement signed" }]
-  }
+  "type": "markdown_section",
+  "section_id": "extraction",
+  "heading": "Fact extraction",
+  "markdown": "## Facts\n\n- …"
 }
 ```
 
-### Final event
-Emitted after all 5 steps complete successfully. Use `case_id` to navigate to the results page.
+`section_id` is one of: `extraction`, `rag_retrieval`, `strategy`, `drafting`, `qa`.
+
+### `complete`
+
+Emitted when the case row is marked **`COMPLETED`** (the brief is still delivered even if the QA step logged a warning and stored a failed step row in edge cases).
+
 ```json
-{ "step": "done", "status": "completed", "case_id": "753fc3cb-17d0-4529-9aaf-2caa8dff611b" }
+{ "type": "complete", "case_id": "753fc3cb-17d0-4529-9aaf-2caa8dff611b" }
 ```
 
-### Error event
-Emitted if any step fails. The stream ends after this.
+### `error`
+
+Emitted on unrecoverable pipeline failure; `Case.status` becomes **`FAILED`**.
+
 ```json
-{ "event": "error", "detail": "OpenAI rate limit exceeded" }
+{ "type": "error", "detail": "OpenAI rate limit exceeded" }
 ```
 
-### Full event sequence (happy path)
+### Example sequence (happy path)
+
 ```
-data: {"step":"extraction",   "status":"running",   "step_index":0}
-data: {"step":"extraction",   "status":"completed", "step_index":0, "data":{...}}
-data: {"step":"rag_retrieval","status":"running",   "step_index":1}
-data: {"step":"rag_retrieval","status":"completed", "step_index":1, "data":{"chunks":[]}}
-data: {"step":"strategy",     "status":"running",   "step_index":2}
-data: {"step":"strategy",     "status":"completed", "step_index":2, "data":{...}}
-data: {"step":"drafting",     "status":"running",   "step_index":3}
-data: {"step":"drafting",     "status":"completed", "step_index":3, "data":{"brief_markdown":"# IN THE MATTER OF..."}}
-data: {"step":"qa",           "status":"running",   "step_index":4}
-data: {"step":"qa",           "status":"completed", "step_index":4, "data":{"risk_level":"LOW",...}}
-data: {"step":"done",         "status":"completed", "case_id":"753fc3cb-..."}
+data: {"type":"markdown_section","section_id":"extraction","heading":"Fact extraction","markdown":"..."}
+
+data: {"type":"markdown_section","section_id":"rag_retrieval","heading":"Precedent retrieval","markdown":"..."}
+
+data: {"type":"markdown_section","section_id":"strategy","heading":"Legal strategy","markdown":"..."}
+
+data: {"type":"markdown_section","section_id":"drafting","heading":"Draft brief","markdown":"..."}
+
+data: {"type":"markdown_section","section_id":"qa","heading":"Quality review","markdown":"..."}
+
+data: {"type":"complete","case_id":"753fc3cb-17d0-4529-9aaf-2caa8dff611b"}
+
 ```
+
+<details>
+<summary>Legacy SSE shape (superseded — kept for comparison)</summary>
+
+Older documentation described per-step `running` / `completed` JSON with `data` payloads and a final `{ "step": "done", ... }` event. That does not match the current orchestrator; see [`docs/archive/backend.md.pre-audit-2026-04-21.md`](./archive/backend.md.pre-audit-2026-04-21.md) section 4.
+
+</details>
 
 ---
 
@@ -282,13 +309,13 @@ Populated by John when Clerk JWT auth is live.
 |--------|------|-------|
 | `id` | UUID string | Primary key |
 | `user_id` | string | Indexed. FK to `users.id` added by Sodiq when auth is live |
-| `title` | string | Auto-generated from first sentence of `raw_input` |
+| `title` | string | Taken from the **`title`** form field on `POST /api/v1/analyze` (user-facing label / search) |
 | `raw_input` | text | The full case text submitted by the user |
 | `status` | string | `PROCESSING` → `COMPLETED` or `FAILED` |
 | `created_at` | timestamp with tz | |
 
 ### `agent_steps`
-One row per agent step per case. A completed case always has exactly 5 rows.
+One row per pipeline stage (`step_index` 0–4). A finished run has five rows; individual steps may be **`FAILED`** while the case still ends **`COMPLETED`** (RAG/QA non-critical paths in the orchestrator).
 
 | Column | Type | Notes |
 |--------|------|-------|
@@ -296,8 +323,8 @@ One row per agent step per case. A completed case always has exactly 5 rows.
 | `case_id` | UUID string | FK → `cases.id` |
 | `step_name` | string | `extraction`, `rag_retrieval`, `strategy`, `drafting`, `qa` |
 | `step_index` | int | `0` through `4` |
-| `status` | string | `PROCESSING` → `COMPLETED` |
-| `result` | JSON | Full output of the agent for this step |
+| `status` | string | `PROCESSING` → `COMPLETED` or `FAILED` |
+| `result` | JSON | Structured agent output (or error metadata) for the step |
 
 ---
 
@@ -306,7 +333,7 @@ One row per agent step per case. A completed case always has exactly 5 rows.
 Data flows sequentially. Each agent receives the output of all previous agents.
 
 ```
-raw_case_text
+merged case text (case_text + optional file excerpt)
     │
     ▼
 [0] Extraction  (gpt-4o-mini, temp=0.1)
@@ -352,111 +379,42 @@ raw_case_text
 
 ### Clerk JWT Auth
 
-Replace the body of `src/api/dependencies.py`:
+**Implemented** in `src/api/dependencies.py` + `src/core/security.py`:
 
-```python
-# Current stub — trusts x-user-id header
-async def get_current_user(x_user_id: str = Header(default="dev-user-001")) -> CurrentUser:
-    return CurrentUser(user_id=x_user_id)
+- **Production (`APP_ENV=production`):** `Authorization: Bearer <Clerk JWT>` is required; `CLERK_JWKS_URL` must be set or the API returns **503** for auth misconfiguration.
+- **Non-production:** if `Authorization` is **omitted**, the dependency accepts **`X-User-Id`** so curl and local tests work without live Clerk tokens.
 
-# After Clerk integration
-async def get_current_user(authorization: str = Header(...)) -> CurrentUser:
-    token = authorization.removeprefix("Bearer ")
-    claims = validate_clerk_jwt(token)  # implement in src/core/security.py
-    return CurrentUser(user_id=claims["sub"], email=claims.get("email"))
-```
-
-`CurrentUser` shape is unchanged — it has `user_id: str` and `email: str | None`. Every route that uses `Depends(get_current_user)` gets real auth instantly once you change this one function.
-
-**Frontend note:** the FSD specifies `Authorization: Bearer <token>` header. Standard `EventSource` doesn't support custom headers, which is why `@microsoft/fetch-event-source` is required for the SSE stream.
-
-**After wiring:** run `uv run pytest tests/` — mock-based tests still pass. Do one live test with a real Clerk token.
+Production frontends should send **Bearer** tokens (see `frontend/src/lib/api.ts` — add `Authorization` when Clerk session is wired for analyze/history calls).
 
 ---
 
-### ChromaDB RAG Retriever
+### ChromaDB RAG
 
-Replace the body of `src/rag/retriever.py`:
-
-```python
-# Current stub
-async def rag_retrieve(_query: str) -> list[str]:
-    return []
-
-# After ChromaDB integration
-async def rag_retrieve(query: str) -> list[str]:
-    results = chroma_collection.similarity_search(query, k=5)
-    return [doc.page_content for doc in results]
-```
-
-The function signature must stay the same: takes a `str`, returns `list[str]`. The orchestrator passes these chunks directly to the strategy agent as context.
-
-**ChromaDB path:** the FSD specifies `./data/vector_db` locally, committed to the repo or on a Render persistent disk for prod.
-
-**After wiring:** run `uv run pytest tests/` — tests mock `rag_retrieve` at the orchestrator level so they still pass. Do one live test and check that `applicable_laws` in the strategy result contains actual statute citations.
+**Implemented** under `src/rag/` (`retriever.py`, `vector_store.py`, `ingestion.py`). Run `uv run python -m src.rag.ingestion` to build `data/vector_db/` from `data/raw/`. Tests patch retrieval where needed; see `tests/test_rag.py`.
 
 ---
 
 ### Postgres + Alembic
 
-**Step 1 — add `asyncpg` to `backend/pyproject.toml`:**
-```toml
-"asyncpg>=0.29.0",
-```
+**`asyncpg`** is already listed in `pyproject.toml`. Set `DATABASE_URL=postgresql+asyncpg://...` in production.
 
-**Step 2 — set the environment variable (Render / production):**
-```
-DATABASE_URL=postgresql+asyncpg://user:pass@host:5432/litigation
-```
-
-No code change needed — `src/core/config.py` reads `DATABASE_URL` automatically.
-
-**Step 3 — set up Alembic migrations:**
-```bash
-cd backend
-uv run alembic init alembic
-# edit alembic/env.py to point at src.database.models.Base
-uv run alembic revision --autogenerate -m "initial schema"
-uv run alembic upgrade head
-```
-
-**Step 4 — add FK constraint on `cases.user_id` → `users.id`** once John's auth is live and the `users` table is being populated. Do this as a new Alembic migration, not a schema change in `models.py`.
-
-**After wiring:** run `uv run pytest tests/` — tests always use their own SQLite regardless of `DATABASE_URL`, so they still pass.
+Schema is still created via `init_db()` / `create_all` in development; for production evolution, add **Alembic** migrations when the team is ready (see archive doc for a starter command sequence).
 
 ---
 
-### Frontend SSE Integration
+### Frontend — analyze + SSE
 
-**Request:**
-```javascript
-await fetchEventSource('http://localhost:8000/api/v1/analyze', {
-    method: 'POST',
-    headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${await getToken()}`,  // Clerk token
-    },
-    body: JSON.stringify({ raw_case_text: inputText }),  // field name is raw_case_text
-    onmessage(ev) {
-        const data = JSON.parse(ev.data);
+The shipped client uses **`FormData`** + **`fetch`** + a **`ReadableStream`** reader (not `EventSource`). See **`frontend/src/lib/api.ts`** — `postAnalyzeStream`.
 
-        if (data.step === 'done') {
-            // pipeline complete — navigate to results
-            navigate(`/dashboard/case/${data.case_id}`);
-            return;
-        }
+**SSE payload types** (parse each `data:` JSON line):
 
-        if (data.event === 'error') {
-            // show error state
-            showError(data.detail);
-            return;
-        }
+| `type` | Fields | UI action |
+|--------|--------|-----------|
+| `markdown_section` | `section_id`, `heading`, `markdown` | Append/render Markdown for that section. |
+| `complete` | `case_id` | Navigate to `/dashboard/scans/{case_id}` (or your detail route). |
+| `error` | `detail` | Show error toast / inline message. |
 
-        // update step status: data.step, data.status ("running" | "completed")
-        updateStep(data.step, data.status, data.data);
-    }
-});
-```
+**REST history:** list/detail responses include `title`, `raw_input`, `status`, `created_at`, and embedded `steps[].result` JSON (structured agent outputs — not the SSE Markdown strings).
 
 **Key field locations:**
 | What | Where |
@@ -473,13 +431,29 @@ await fetchEventSource('http://localhost:8000/api/v1/analyze', {
 
 ## 8. Environment Variables
 
-All read from `backend/.env`. Copy `backend/.env.example` as a starting point.
+All read from `backend/.env`. Copy **`backend/.env.example`** as a starting point (it documents Clerk, providers, and CORS).
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `OPENAI_API_KEY` | Yes (live server) | `""` | OpenAI API key |
-| `DATABASE_URL` | No | `sqlite+aiosqlite:///./litigation.db` | Sodiq sets this to Postgres for prod |
-| `MODEL` | No | `gpt-4o` | Used for strategy + drafting agents |
-| `CLERK_JWKS_URL` | No | `""` | John sets this for JWT verification |
-| `ALLOWED_ORIGINS` | No | `["http://localhost:3000"]` | Comma-separated frontend URLs for CORS |
-| `APP_ENV` | No | `development` | |
+| `OPENAI_API_KEY` | One of OpenAI / OpenRouter | `""` | Primary provider key when set |
+| `OPENROUTER_API_KEY` | Optional alt | `""` | Used when OpenAI key unset (see `.env.example`) |
+| `MODEL` | No | `gpt-4o` | Chat model id for agents (`settings.model`) |
+| `DATABASE_URL` | No | SQLite URL in `.env.example` | Postgres in production |
+| `CLERK_JWKS_URL` | Yes in prod with Clerk | `""` | JWKS URL for JWT verification |
+| `CLERK_ISSUER` | Optional | — | Reserved in `.env.example` for stricter JWT checks if you extend `security.py` |
+| `ALLOWED_ORIGINS` | No | `["http://localhost:3000"]` | JSON array of allowed CORS origins |
+| `APP_ENV` | No | `development` | `production` enables JSON structlog output |
+| `LOG_LEVEL` | No | `INFO` | Logging verbosity |
+| `AGENT_STEP_TIMEOUT_SECONDS` | No | `120` | Wall-clock timeout per agent step |
+
+---
+
+## 9. Golden-case evals & GitHub Actions
+
+**GitHub Actions (`evals.yml`):** On path-filtered pushes to **`main`**, **`eval_extraction`** runs against every row in **`backend/evals/golden_cases.json`** (**11** golden cases). The **`extraction-eval`** job uses **`continue-on-error: true`**, so the workflow does not block merges when the eval fails or **`OPENAI_API_KEY`** is missing—use the job log for pass/fail. To block merges on golden-case regression, add **`OPENAI_API_KEY`** as a repo secret and remove **`continue-on-error`**. **`eval_llm_judge`** runs only via **Actions → Evaluations → Run workflow** with the optional checkbox (~**$0.30+** per full run). See **`docs/PROJECT_WALKTHROUGH.md`** §22 for tables and rubric mapping.
+
+```bash
+cd backend
+uv run python -m evals.eval_extraction
+uv run python -m evals.eval_llm_judge
+```

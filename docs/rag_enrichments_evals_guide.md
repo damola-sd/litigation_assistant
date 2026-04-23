@@ -1,6 +1,8 @@
 # RAG Enrichment, Evaluations, and Frontend Testing
 
-> **What this covers:** Everything discussed in this session — how to expand the RAG corpus with Kenyan legal documents, the 8 new golden evaluation cases (grounded in the actual documents in `data/raw/`), ready-to-paste frontend test cases, and how to set up Vitest for frontend unit and component tests.
+> **What this covers:** How to expand the RAG corpus (`data/raw/` → ingestion → `data/vector_db/`), how **`backend/evals/golden_cases.json`** is structured (the repo currently ships **11** golden cases — 3 seed scenarios plus **8** additional statutes‑grounded cases), optional manual UI checks, and **Vitest** setup for frontend unit/component tests.
+
+> **Previous revision:** Older versions used “8 new cases only” wording and session-specific framing; the archived revision is not included in this repository.
 
 ---
 
@@ -10,7 +12,7 @@
 2. [Current RAG Corpus](#2-current-rag-corpus)
 3. [Golden Evaluation Cases](#3-golden-evaluation-cases)
    - 3.1 [How to add them](#31-how-to-add-them)
-   - 3.2 [The 8 new cases (JSON)](#32-the-8-new-cases-json)
+   - 3.2 [Golden case JSON examples](#32-golden-case-json-examples)
 4. [Frontend Manual Test Cases](#4-frontend-manual-test-cases)
 5. [Frontend Automated Tests — Vitest Setup](#5-frontend-automated-tests--vitest-setup)
    - 5.1 [Install and configure](#51-install-and-configure)
@@ -76,7 +78,7 @@ These are the ones most likely to improve strategy and drafting quality for comm
 
 ## 2. Current RAG Corpus
 
-As of this session, `data/raw/` contains these 15 documents:
+As of **2026-04-22**, `data/raw/` contains **15** Kenyan law text files (plus a `.gitkeep`). Filenames drift slightly over time — always list the directory if you need an exact manifest:
 
 | Filename | Legal domain |
 |----------|-------------|
@@ -102,7 +104,7 @@ As of this session, `data/raw/` contains these 15 documents:
 
 ### 3.1 How to add them
 
-Open `backend/evals/golden_cases.json`. It is a JSON array. Paste the new cases inside the `[...]` array alongside the existing three cases (`land-001`, `supply-001`, `employment-001`).
+Open `backend/evals/golden_cases.json`. It is a JSON array. Append new objects alongside the **11** cases already committed (`land-001`, `supply-001`, `employment-001`, `arb-001`, `tort-001`, `lim-001`, `succ-001`, `marr-001`, `cpa-001`, `const-001`, `proc-001`). Re-run the eval commands after editing.
 
 Then run either eval script:
 
@@ -112,13 +114,15 @@ cd backend
 # Extraction eval — checks structured output against constraints (free, fast)
 uv run python -m evals.eval_extraction
 
-# LLM-as-judge eval — scores full pipeline output 1–5 on 3 dimensions (~$0.30 per run)
+# LLM-as-judge eval — scores full pipeline output 1–5 on 3 dimensions (~$0.30+ per full run over all golden cases)
 uv run python -m evals.eval_llm_judge
 ```
 
-### 3.2 The 8 new cases (JSON)
+**GitHub Actions (`evals.yml`):** On path-filtered pushes to **`main`**, **`eval_extraction`** runs against every row in **`backend/evals/golden_cases.json`** (**11** golden cases). The **`extraction-eval`** job uses **`continue-on-error: true`**, so the workflow does not block merges when the eval fails or **`OPENAI_API_KEY`** is missing—use the job log for pass/fail. To block merges on golden-case regression, add **`OPENAI_API_KEY`** as a repo secret and remove **`continue-on-error`**. **`eval_llm_judge`** runs only via **Actions → Evaluations → Run workflow** with the optional checkbox (~**$0.30+** per full run). See **`docs/PROJECT_WALKTHROUGH.md`** §22 for tables and rubric mapping.
 
-Each case is grounded in a specific statute that exists in `data/raw/`. Paste these inside the existing array in `golden_cases.json`.
+### 3.2 Golden case JSON examples
+
+The block below shows the **shape** of each golden case (`id`, `description`, `case_text`, nested `expected` constraints). The repository **already includes** these scenarios (and more) in `golden_cases.json` — keep this section as a reference when authoring **additional** cases, not as something you must paste wholesale.
 
 ```json
   {

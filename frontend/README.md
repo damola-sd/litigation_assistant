@@ -26,6 +26,8 @@ npm install
 
 Default dev URL: `http://localhost:3000`.
 
+**Evals / CI (backend repo):** Golden-case extraction runs in **`.github/workflows/evals.yml`** on path-filtered pushes to **`main`** (**`continue-on-error: true`** until **`OPENAI_API_KEY`** is set and you remove it); the expensive LLM-judge job is **manual** only — see **`../docs/PROJECT_WALKTHROUGH.md`** §22 (this Next.js app is unchanged by those jobs).
+
 ## Environment variables
 
 | Variable | Purpose |

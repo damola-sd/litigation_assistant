@@ -11,11 +11,7 @@ async def fetch_cases_for_user(
     user_id: str,
     title_query: str | None,
 ) -> list[Case]:
-    stmt = (
-        select(Case)
-        .where(Case.user_id == user_id)
-        .order_by(Case.created_at.desc())
-    )
+    stmt = select(Case).where(Case.user_id == user_id).order_by(Case.created_at.desc())
     q = (title_query or "").strip()
     if q:
         stmt = stmt.where(Case.title.ilike(f"%{q}%"))
@@ -43,9 +39,7 @@ async def delete_case_for_user(
     user_id: str,
     case_id: str,
 ) -> bool:
-    exists = await db.execute(
-        select(Case.id).where(Case.id == case_id, Case.user_id == user_id)
-    )
+    exists = await db.execute(select(Case.id).where(Case.id == case_id, Case.user_id == user_id))
     if exists.scalar_one_or_none() is None:
         return False
     await db.execute(delete(AgentStep).where(AgentStep.case_id == case_id))

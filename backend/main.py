@@ -1,1 +1,1 @@
-from src.main import app
+from src.main import app  # noqa: F401 — re-export for `uvicorn main:app`

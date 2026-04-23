@@ -15,6 +15,7 @@ class Base(DeclarativeBase):
 
 class User(Base):
     """Populated by John when Clerk JWT auth is wired up."""
+
     __tablename__ = "users"
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True, default=lambda: str(uuid.uuid4()))
