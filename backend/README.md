@@ -2,8 +2,6 @@
 
 Python **FastAPI** service for the Litigation Prep Assistant: **Clerk JWT** auth (with **dev `X-User-Id` fallback**), **multipart** case intake, **SSE** streaming of the five-step agent pipeline, **SQLAlchemy async** persistence, **ChromaDB** RAG, and **structlog** logging.
 
-> **Previous version:** the older “scaffold” README is preserved for diff review at [`docs/archive/backend-README.md.pre-audit-2026-04-21.md`](../docs/archive/backend-README.md.pre-audit-2026-04-21.md).
-
 ---
 
 ## Requirements
