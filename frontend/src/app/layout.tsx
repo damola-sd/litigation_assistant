@@ -4,6 +4,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 import { Geist, Geist_Mono } from "next/font/google";
 
 import { AuthenticatedLayout } from "@/components/authenticated-layout";
+import { PlatformHeader } from "@/components/platform-header";
 
 import "../styles/globals.css";
 import "react-datepicker/dist/react-datepicker.css";
@@ -34,7 +35,11 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <ClerkProvider>
-          <AuthenticatedLayout>{children}</AuthenticatedLayout>
+          <div className="flex min-h-svh flex-col">
+            <div className="flex min-h-0 flex-1 flex-col">
+              <AuthenticatedLayout>{children}</AuthenticatedLayout>
+            </div>
+          </div>
         </ClerkProvider>
       </body>
     </html>
