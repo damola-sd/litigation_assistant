@@ -1,6 +1,6 @@
 # Documentation audit log — 2026-04-21
 
-This log records how **litigation-prep-assistant** was checked against the **Capstone Rubric** (Excel: `Capstone Rubric.xlsx`), what ran locally, and where docs were corrected. Full **pre-change** copies of key markdown files live under [`docs/archive/`](./archive/).
+This log records how **litigation-prep-assistant** was checked against the **Capstone Rubric** (Excel: `Capstone Rubric.xlsx`), what ran locally, and where docs were corrected.
 
 ---
 
