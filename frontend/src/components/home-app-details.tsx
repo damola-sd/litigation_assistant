@@ -83,7 +83,9 @@ export function HomeAppDetails({
       </SignedIn>
 
       <div className="mt-12 text-center text-sm text-gray-500 dark:text-gray-400">
-        <p>Secure • Structured outputs • Multi-agent pipeline</p>
+        <p>
+          Secure • Structured outputs . Integrated with Kenyan law database.
+        </p>
       </div>
     </div>
   );
