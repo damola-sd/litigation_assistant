@@ -28,12 +28,9 @@ export default function Home() {
   return (
     <>
       <SignedOut>
-        <main className="min-h-screen bg-linear-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+        <main className="min-h-[calc(100svh-3rem)] bg-linear-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
           <div className="container mx-auto px-4 py-12">
-            <nav className="mb-12 flex items-center justify-between">
-              <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-200">
-                Litigation Prep Assistant
-              </h1>
+            <nav className="mb-12 flex items-center justify-end gap-4">
               <div className="flex items-center gap-4">
                 <Link
                   href="/subscriptions"

@@ -3,7 +3,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { LitigationPrepMark } from "@/components/litigation-prep-mark";
+
 const shell = "bg-[#1a222f] text-white";
+
+/** Matches `PlatformHeader` (`h-12`) so the rail fills the viewport below the global bar. */
+const belowPlatformChrome = "min-h-[calc(100svh-3rem)]";
 
 function IconHome({ className }: { className?: string }) {
   return (
@@ -117,15 +122,23 @@ export function AppSidebar() {
   const plansActive = pathname.startsWith("/subscriptions");
   return (
     <aside
-      className={`flex h-svh w-64 shrink-0 flex-col overflow-y-auto border-r border-white/10 ${shell}`}
+      className={`flex w-64 shrink-0 flex-col self-stretch overflow-y-auto border-r border-white/10 ${belowPlatformChrome} ${shell}`}
     >
-      <div className="border-b border-white/10 px-4 py-5">
-        <p className="text-xs font-semibold uppercase tracking-wider text-white/50">
-          Litigation Prep
-        </p>
-        <p className="mt-1 text-lg font-bold leading-tight text-white">
-          Assistant
-        </p>
+      <div className="border-b border-white/10 px-4 py-4">
+        <Link
+          href="/dashboard"
+          className="flex items-center gap-3 rounded-lg outline-none ring-blue-400/60 transition-colors hover:bg-white/5 focus-visible:ring-2"
+        >
+          <LitigationPrepMark className="h-11 w-11 shrink-0" />
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-wider text-white/50">
+              Litigation Prep
+            </p>
+            <p className="mt-0.5 text-lg font-bold leading-tight text-white">
+              Assistant
+            </p>
+          </div>
+        </Link>
       </div>
 
       <nav className="flex flex-1 flex-col gap-1 p-3">

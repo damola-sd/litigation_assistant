@@ -3,7 +3,6 @@ import Link from "next/link";
 export default function HomePage() {
   return (
     <main style={{ padding: "2rem" }}>
-      <h1>Litigation Prep Assistant</h1>
       <p>Landing page placeholder.</p>
       <ul>
         <li>

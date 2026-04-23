@@ -14,7 +14,9 @@ export function AuthenticatedLayout({
     <>
       <SignedOut>{children}</SignedOut>
       <SignedIn>
-        <AppShell>{children}</AppShell>
+        <div className="flex min-h-0 flex-1 flex-col">
+          <AppShell>{children}</AppShell>
+        </div>
       </SignedIn>
     </>
   );

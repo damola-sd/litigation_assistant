@@ -30,10 +30,13 @@ data/vector_db/*
 .idea/
 .vscode/
 
+# Documentation
 Backend_walkthrough.md
+#PROJECT_WALKTHROUGH.md
+Rubric.md
 
+# Database
 backend/*.db
-backend/*.coverage
 
 # Terraform
 *.tfvars
@@ -43,3 +46,6 @@ backend/*.coverage
 terraform.tfstate.d/
 *.tfstate
 *.tfstate.backup
+
+# Coverage
+backend/*.coverage
