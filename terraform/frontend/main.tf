@@ -121,6 +121,7 @@ resource "aws_apprunner_service" "frontend" {
 
         runtime_environment_variables = {
           NODE_ENV = "production"
+          HOSTNAME = "0.0.0.0"
         }
 
         # CLERK_SECRET_KEY is server-side only — safe to inject at runtime.
