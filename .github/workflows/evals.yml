@@ -6,7 +6,7 @@ on:
     paths:
       - "backend/src/agents/**"
       - "backend/evals/**"
-      - "backend/data/raw/**"
+      - "data/raw/**"
       - ".github/workflows/evals.yml"
   workflow_dispatch:
     inputs:
