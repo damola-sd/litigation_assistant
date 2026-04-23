@@ -2894,22 +2894,23 @@ Aim for 8–10 cases. Each follows the same JSON structure as the existing 3.
 
 **Current state:** Dockerfile exists, docker-compose exists, but there is no live deployment.
 
-**What to do:** The fastest path is Render.com for the backend (free tier, supports Docker) and Vercel for the frontend (free tier, supports Next.js):
+**What to do:** The infrastructure is already defined in Terraform. Deploy using AWS App Runner for both frontend and backend, with Aurora Serverless v2 as the production database:
 
-**Backend on Render:**
-1. Create a free Render account
-2. New Web Service → connect GitHub repo
-3. Docker environment → Dockerfile path: `infra/Dockerfile.backend`
-4. Set environment variables: `OPENAI_API_KEY`, `APP_ENV=production`, `DATABASE_URL` (Render free Postgres)
-5. Deploy
+**Database (AWS Aurora Serverless v2):**
+1. `cd terraform/database && terraform init && terraform apply`
+2. Note the Aurora cluster endpoint from Terraform outputs (`db_endpoint`)
 
-**Frontend on Vercel:**
-1. `vercel` CLI or Vercel dashboard
-2. Root directory: `frontend`
-3. Set `NEXT_PUBLIC_API_URL` to your Render backend URL
-4. Deploy
+**Backend (AWS App Runner):**
+1. Build and push the Docker image: `docker build -t litigation-backend ./backend && docker push <ecr-repo-url>`
+2. `cd terraform/backend && terraform init && terraform apply`
+3. Set secrets in AWS Secrets Manager: `OPENAI_API_KEY`, `APP_ENV=production`, `DATABASE_URL=postgresql+asyncpg://<aurora-endpoint>:5432/litigation`
 
-**Effort:** 2–4 hours (mostly account setup and environment variable configuration).
+**Frontend (AWS App Runner):**
+1. Build and push the Docker image: `docker build -t litigation-frontend ./frontend && docker push <ecr-repo-url>`
+2. `cd terraform/frontend && terraform init && terraform apply`
+3. Pass `NEXT_PUBLIC_API_URL` (backend App Runner URL) as a Terraform build arg variable
+
+**Effort:** 2–4 hours (mostly AWS account setup, ECR image pushes, and Terraform apply).
 
 ---
 
@@ -3133,7 +3134,7 @@ If you have **one day** before the demo:
 
 If you have **two to three days**:
 5. `[RUBRIC-CRITICAL]` 2 — Add 5 more golden cases (2–3 hours)
-6. `[RUBRIC-CRITICAL]` 5 — Deploy to Render + Vercel (2–4 hours)
+6. `[RUBRIC-CRITICAL]` 5 — Deploy to AWS App Runner + Aurora (2–4 hours)
 7. `[QUALITY]` 11 — Copy brief button (1 hour)
 8. `[QUALITY]` 16 — Expand RAG corpus (2–3 hours)
 

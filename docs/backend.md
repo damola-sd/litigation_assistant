@@ -467,7 +467,7 @@ await fetchEventSource('http://localhost:8000/api/v1/analyze', {
 | Case ID after completion | `data.case_id` on the `done` event |
 | History case text | `raw_input` field (not `case_text`) on `/api/v1/cases` response |
 
-**CORS:** if you hit a CORS error, ask Rithwik to add your Vercel URL to `allowed_origins` in `src/core/config.py`, or set the `ALLOWED_ORIGINS` env var on Render.
+**CORS:** if you hit a CORS error, add your App Runner frontend URL to `allowed_origins` in `src/core/config.py`, or set the `ALLOWED_ORIGINS` env var in the backend App Runner service (via Terraform variable or AWS Secrets Manager).
 
 ---
 

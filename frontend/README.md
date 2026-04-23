@@ -52,13 +52,15 @@ Create a local env file if you need overrides (for example `.env.local` — keep
 
 Under `src/components/`: domain folders for `forms`, `dashboard`, `agents`, and `ui` provide minimal placeholders for upcoming UI work.
 
-## Deploying on Vercel
+## Deploying on AWS App Runner
 
-1. Import the repository in [Vercel](https://vercel.com/).
-2. Set the **Root Directory** to `frontend` so installs and builds run from this folder.
-3. Add `NEXT_PUBLIC_API_URL` in the project **Environment Variables** UI pointing at your deployed API (or a preview URL).
+The frontend is containerised and deployed via AWS App Runner. The full infrastructure is managed by Terraform in `terraform/frontend/`.
 
-`vercel.json` in this folder sets `"framework": "nextjs"` for clarity; Vercel usually auto-detects Next.js without it.
+1. **Build and push** the Docker image (`frontend/Dockerfile`) to the ECR repository created by Terraform.
+2. **Apply Terraform** — `cd terraform/frontend && terraform apply`. App Runner pulls the image from ECR and serves it on port 3000.
+3. **Environment variables** — `NEXT_PUBLIC_*` values are passed as Docker build args in the Terraform config. `CLERK_SECRET_KEY` is injected at runtime from AWS Secrets Manager.
+
+The App Runner service URL is available as a Terraform output (`frontend_url`).
 
 ## TypeScript and paths
 

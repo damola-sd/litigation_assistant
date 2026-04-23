@@ -128,7 +128,7 @@ litigation-prep-assistant/
 │
 └── infra/
     ├── docker-compose.yml      ← local Postgres (optional)
-    ├── Dockerfile.backend      ← Render deployment image
+    ├── Dockerfile.backend      ← legacy image (backend now uses backend/Dockerfile for AWS App Runner)
     └── init.sql                ← DB bootstrap
 ```
 
@@ -272,8 +272,7 @@ data/raw/*.txt   →  ingestion.py  →  data/vector_db/  →  retriever.py  →
 ### 4.2 Why ChromaDB?
 
 - **SQLite-backed**: no separate database server to run. It's just a folder on disk.
-- **Persistent**: commit `data/vector_db/` to the repo or mount it on Render's
-  persistent disk — it just works.
+- **Persistent**: commit `data/vector_db/` to the repo or build it into the Docker image — it just works.
 - **Stores text alongside embeddings**: when you query it, you get the original
   text chunks back directly, without a separate lookup.
 - Alternative FAISS would require manually saving/loading `.index` files and
@@ -916,11 +915,15 @@ real auth automatically. All existing tests continue to pass because they use th
 **Who does this:** John (frontend token change) + whoever implements `validate_clerk_jwt`
 in `src/core/security.py`.
 
-### 8.2 Postgres + Alembic migrations (pre-production)
+### 8.2 Aurora (PostgreSQL) + Alembic migrations (pre-production)
 
 **Current state:** The backend uses SQLite locally. SQLite is a single file — no
 server needed, great for development, not suitable for production (no concurrent
 writes, no hosted service).
+
+**Production database:** AWS Aurora Serverless v2 (PostgreSQL 15), provisioned via
+`terraform/database/`. Credentials are stored in AWS Secrets Manager and injected
+into the App Runner service at runtime as `DATABASE_URL`.
 
 **What needs to change (Sodiq's task):**
 
@@ -932,7 +935,7 @@ writes, no hosted service).
 
 **Step 2 — Set DATABASE_URL in production:**
 ```
-DATABASE_URL=postgresql+asyncpg://user:password@host:5432/litigation
+DATABASE_URL=postgresql+asyncpg://litigationadmin:password@<aurora-endpoint>:5432/litigation
 ```
 
 No code change is needed — `src/core/config.py` reads `DATABASE_URL` automatically.
@@ -976,38 +979,47 @@ statute language.
    uv run python -m src.rag.ingestion
    ```
 
-3. For production on Render — two options:
+3. For production on AWS App Runner — two options:
    - **Option A:** Commit `data/vector_db/` to the repo. Ingestion runs locally,
-     index is in version control, Render reads it at startup. Simple, works well
+     index is baked into the Docker image at build time. Simple, works well
      for a corpus that rarely changes.
-   - **Option B:** Mount a Render persistent disk, run ingestion as part of the
-     deploy script. More complex but keeps the repo smaller.
+   - **Option B:** Store the index in an S3 bucket and download it at container
+     startup. More complex but keeps the image smaller and allows updates without rebuilds.
 
 **No code changes needed.** The ingestion and retrieval code is already complete.
 
 ### 8.4 Deployment
 
-**Backend on Render:**
+All infrastructure is managed by Terraform in the `terraform/` directory.
+
+**Backend (AWS App Runner):**
 ```
-Build command: pip install -r requirements.txt
-Start command: uvicorn src.main:app --host 0.0.0.0 --port $PORT
+terraform/backend/   ← ECR repo + App Runner service + IAM roles
 ```
 
-Environment variables to set in Render dashboard:
+Environment variables injected at runtime from AWS Secrets Manager:
 ```
 OPENAI_API_KEY=sk-...
-DATABASE_URL=postgresql+asyncpg://...
+DATABASE_URL=postgresql+asyncpg://<aurora-endpoint>:5432/litigation
 CLERK_JWKS_URL=https://...
-ALLOWED_ORIGINS=["https://your-app.vercel.app"]
+ALLOWED_ORIGINS=["https://<frontend-app-runner-url>"]
 ```
 
-**Frontend on Vercel:**
-- Root directory: `frontend/`
-- Environment variables: `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`,
-  `NEXT_PUBLIC_API_URL=https://your-render-api-url`
+**Frontend (AWS App Runner):**
+```
+terraform/frontend/  ← ECR repo + App Runner service + IAM roles
+```
+Build-time Docker args: `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `NEXT_PUBLIC_API_URL`.
+Runtime secret: `CLERK_SECRET_KEY` (from Secrets Manager).
 
-**CORS:** When the Vercel URL is known, add it to `ALLOWED_ORIGINS` in the Render
-environment variables. The backend reads this at startup.
+**Database (AWS Aurora Serverless v2):**
+```
+terraform/database/  ← Aurora cluster + Secrets Manager secret
+```
+
+**CORS:** When the frontend App Runner URL is known, add it to `ALLOWED_ORIGINS`
+(Terraform variable `allowed_origins` in `terraform/backend/variables.tf`).
+The backend reads this at startup.
 
 ---
 
@@ -1041,7 +1053,7 @@ column exists).
 
 If two users submit analyses at the exact same moment in local dev, SQLite may
 produce a "database is locked" error. This is fine for single-person development
-and demos. Postgres (§8.2) handles concurrent writes correctly.
+and demos. Aurora PostgreSQL (§8.2) handles concurrent writes correctly.
 
 ---
 
