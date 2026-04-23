@@ -7,6 +7,8 @@
 [![ChromaDB](https://img.shields.io/badge/ChromaDB-Vector%20Store-E85D04?logo=databricks&logoColor=white)](https://www.trychroma.com)
 [![OpenRouter](https://img.shields.io/badge/OpenRouter-supported-8B5CF6)](https://openrouter.ai)
 [![Tests](https://img.shields.io/badge/tests-143%20passing-22C55E?logo=pytest&logoColor=white)](./backend/tests)
+[![Backend CI](https://github.com/Andela-AI-Engineering-Bootcamp/litigation-prep-assistant/actions/workflows/backend-deploy.yml/badge.svg)](https://github.com/Andela-AI-Engineering-Bootcamp/litigation-prep-assistant/actions/workflows/backend-deploy.yml)
+[![Frontend CI](https://github.com/Andela-AI-Engineering-Bootcamp/litigation-prep-assistant/actions/workflows/frontend-deploy.yml/badge.svg)](https://github.com/Andela-AI-Engineering-Bootcamp/litigation-prep-assistant/actions/workflows/frontend-deploy.yml)
 [![Vercel](https://img.shields.io/badge/Frontend-Vercel-000000?logo=vercel&logoColor=white)](https://vercel.com)
 [![Render](https://img.shields.io/badge/Backend-Render-46E3B7?logo=render&logoColor=white)](https://render.com)
 [![uv](https://img.shields.io/badge/uv-package%20manager-DE5FE9?logo=astral&logoColor=white)](https://docs.astral.sh/uv/)
@@ -341,6 +343,59 @@ uv run python -m evals.eval_llm_judge --threshold 3.5   # stricter pass threshol
 
 ---
 
+## Observability
+
+### Structured logging
+
+All backend logging uses [structlog](https://www.structlog.org/). In development the output is human-readable console output. In production (`APP_ENV=production`) it switches to newline-delimited JSON suitable for any log aggregator (Datadog, Loki, CloudWatch, etc.).
+
+Every request logs at `INFO` level with `method`, `path`, `status_code`, and `duration_ms`. Every LLM call logs:
+
+| Field | Example value | What it tells you |
+|-------|--------------|-------------------|
+| `event` | `"llm_call_complete"` | Log event type |
+| `model` | `"gpt-4o"` | Model used |
+| `agent` | `"extraction"` | Which agent made the call |
+| `duration_ms` | `1842` | Wall-clock latency for the API call |
+| `prompt_tokens` | `1103` | Input tokens consumed |
+| `completion_tokens` | `412` | Output tokens consumed |
+| `case_id` | `"a3f1..."` | Correlates all logs for one pipeline run |
+
+### Querying logs locally
+
+With the default console renderer, filter by keyword:
+
+```bash
+uv run uvicorn src.main:app --reload 2>&1 | grep llm_call_complete
+```
+
+In production (JSON mode), pipe through `jq`:
+
+```bash
+# All LLM calls for a specific case
+journalctl -u litigation-prep | jq 'select(.case_id == "a3f1...")'
+
+# Average latency per agent across a log file
+cat app.log | jq -r 'select(.event == "llm_call_complete") | [.agent, .duration_ms] | @tsv' \
+  | awk '{sum[$1]+=$2; n[$1]++} END {for (a in sum) print a, sum[a]/n[a]}'
+```
+
+### Log levels
+
+| Level | When used |
+|-------|-----------|
+| `INFO` | Request lifecycle, each pipeline step completing, LLM call telemetry |
+| `WARNING` | Non-critical step failures (RAG retrieval failure, QA step failure) — pipeline continues |
+| `ERROR` / `EXCEPTION` | Critical step failures that abort the pipeline and mark the case `FAILED` |
+
+### What is not yet instrumented
+
+- No distributed tracing (no OpenTelemetry spans) — log correlation is via `case_id` only
+- No metrics endpoint (no Prometheus `/metrics`) — latency and token data lives in logs
+- No alerting — add a log-based alert on `pipeline_failed` events in your aggregator
+
+---
+
 ## API Reference
 
 | Method | Endpoint | Auth | Description |
@@ -379,6 +434,30 @@ Each line has the form `data: <json>\n\n`. Three event types are emitted:
 
 ---
 
+## API Costs
+
+All LLM calls use OpenAI `gpt-4o` (or the equivalent model on OpenRouter). Embedding calls use `text-embedding-3-small`. The table below shows approximate token usage and cost per pipeline run based on a medium-length case description (~500 words input).
+
+| Step | Model | Est. input tokens | Est. output tokens | Est. cost (USD) |
+|------|-------|------------------:|-------------------:|----------------:|
+| Extraction | gpt-4o | 1,100 | 450 | $0.007 |
+| RAG embedding (query) | text-embedding-3-small | 120 | — | <$0.001 |
+| Strategy | gpt-4o | 2,200 | 750 | $0.013 |
+| Drafting | gpt-4o | 3,400 | 1,400 | $0.023 |
+| QA | gpt-4o | 4,100 | 380 | $0.014 |
+| **Total per run** | | **~10,920** | **~2,980** | **~$0.057** |
+
+> Prices based on OpenAI public pricing as of Q2 2025: gpt-4o at $2.50/1M input tokens and $10.00/1M output tokens; text-embedding-3-small at $0.02/1M tokens. Actual costs vary with case length and model updates.
+
+### Cost controls
+
+- The extraction and strategy steps are the cheapest; the drafting step is the most expensive because it produces a long brief.
+- To reduce cost during development, set a shorter `agent_step_timeout_seconds` in `.env` to fail fast, or mock agents in test runs (the test suite has zero API cost by design).
+- Switching to `gpt-4o-mini` via `OPENROUTER_API_KEY` pointing at a cheaper model cuts cost by ~10× at the expense of brief quality.
+- The LLM-as-judge eval (`eval_llm_judge.py`) adds a second GPT-4o call per case (~$0.04 extra) — only run it before releases, not on every push.
+
+---
+
 ## Tech Stack
 
 | Component | Tool |
@@ -412,6 +491,13 @@ Each line has the form `data: <json>\n\n`. Three event types are emitted:
 | structlog for logging | Newline-delimited JSON in production is ingestible by any log aggregator without format negotiation; per-step LLM telemetry (latency, tokens) is emitted at `INFO` level |
 | OpenAI / OpenRouter priority selection | The shared client factory checks `OPENAI_API_KEY` first, then `OPENROUTER_API_KEY`; no agent code changes are needed to switch providers |
 | Clerk JWKS validation server-side | Bearer tokens are verified against Clerk's public JWKS with a 5-minute in-memory cache, avoiding a network round-trip on every request while still rotating keys within a reasonable window |
+| SQLite in dev, Postgres in prod | SQLAlchemy async supports both via `DATABASE_URL`; SQLite requires zero setup for local development and CI, while Postgres handles concurrent production writes without locking issues |
+| ChromaDB as the vector store | Embedded Python library with no separate process or infra to manage; the index is a directory on disk that travels with the Docker image; suitable for a corpus up to ~100K chunks before a hosted solution is warranted |
+| 800-char chunks with 100-char overlap | A chunk must be large enough to contain a complete statutory sentence (~3–5 lines) but small enough that the top-k results fit in the strategy prompt context window; overlap prevents a relevant sentence from being split across two non-adjacent chunks |
+| RAG retrieval before strategy (not before extraction) | Extraction works on raw facts and needs no legal context; RAG results are passed to strategy where statute grounding is needed to map facts to legal arguments; this avoids inflating the extraction prompt unnecessarily |
+| `asyncio.wait_for` per step | A per-step wall-clock timeout (configurable via `AGENT_STEP_TIMEOUT_SECONDS`) prevents a single hung OpenAI call from stalling the entire SSE stream; the client sees an error event rather than a silent connection timeout |
+| Versioned prompt modules | Each agent's system prompt is a module-level constant with a `PROMPT_VERSION` string; when a prompt is changed the version is bumped, so logs correlate output quality regressions with the exact prompt version that produced them |
+| Pydantic `BaseSettings` for config | All environment variables are validated at startup with types and defaults; a missing required key raises a clear error before any agent code runs, rather than failing silently mid-pipeline |
 
 ---
 
