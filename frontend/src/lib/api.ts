@@ -34,6 +34,7 @@ export type AnalyzeFormInput = {
 export async function postAnalyzeStream(
   input: AnalyzeFormInput,
   userId: string | undefined,
+  token: string | null,
   signal: AbortSignal,
   onSseData: (payload: SseAnalyzePayload) => void,
   onError: (message: string) => void,
@@ -50,6 +51,7 @@ export async function postAnalyzeStream(
     signal,
     headers: {
       ...(userId ? { "X-User-Id": userId } : {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     body: fd,
   });
@@ -116,6 +118,7 @@ export type HistoryItem = {
 
 /** `titleSearch` filters by case title (substring, case-insensitive); backend only. */
 export async function getCases(
+  token: string | null,
   userId: string | undefined,
   titleSearch?: string,
 ): Promise<HistoryItem[]> {
@@ -128,6 +131,7 @@ export async function getCases(
     {
       headers: {
         ...(userId ? { "X-User-Id": userId } : {}),
+        ...(token ? { "Authorization": `Bearer ${token}` } : {}),
       },
       cache: "no-store",
     },
@@ -141,11 +145,13 @@ export async function getCases(
 export async function deleteCase(
   id: string,
   userId: string | undefined,
+  token: string | null,
 ): Promise<void> {
   const res = await fetch(`${apiBaseUrl}/api/v1/cases/${id}`, {
     method: "DELETE",
     headers: {
       ...(userId ? { "X-User-Id": userId } : {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
   });
   if (!res.ok) {
@@ -173,10 +179,12 @@ export type HistoryDetail = {
 export async function getCase(
   id: string,
   userId: string | undefined,
+  token: string | null,
 ): Promise<HistoryDetail> {
   const res = await fetch(`${apiBaseUrl}/api/v1/cases/${id}`, {
     headers: {
       ...(userId ? { "X-User-Id": userId } : {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     cache: "no-store",
   });

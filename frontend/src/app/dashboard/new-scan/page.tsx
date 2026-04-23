@@ -8,13 +8,12 @@ import {
   type FormEvent,
   type SetStateAction,
 } from "react";
-import { useUser } from "@clerk/nextjs";
-
 import {
   PipelineMarkdownPanel,
   type MarkdownSection,
 } from "@/components/pipeline-markdown-panel";
-import { postAnalyzeStream, type SseAnalyzePayload } from "@/lib/api";
+import { type SseAnalyzePayload } from "@/lib/api";
+import { useApiClient } from "@/lib/useApiClient";
 
 function handleStreamPayload(
   payload: SseAnalyzePayload,
@@ -44,8 +43,7 @@ function handleStreamPayload(
 }
 
 export default function NewScanPage() {
-  const { user } = useUser();
-  const userId = user?.id;
+  const { postAnalyzeStream } = useApiClient();
 
   const [title, setTitle] = useState("");
   const [caseText, setCaseText] = useState("");
@@ -82,7 +80,6 @@ export default function NewScanPage() {
     try {
       await postAnalyzeStream(
         { title: t, caseText: caseText, file },
-        userId,
         abortRef.current.signal,
         onStreamPayload,
         (msg) => setError(msg),
