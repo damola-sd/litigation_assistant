@@ -4,10 +4,8 @@ Unit tests for Settings.parse_allowed_origins and CORS middleware integration.
 
 import pytest
 from httpx import ASGITransport, AsyncClient
-from unittest.mock import AsyncMock, patch
 
 from src.core.config import Settings
-
 
 # ── parse_allowed_origins unit tests ─────────────────────────────────────────
 
