@@ -51,8 +51,12 @@ MOCK_EXTRACTION = ExtractionResult(
     ],
     chronological_timeline=[
         TimelineEvent(date="15 March 2023", event="Written sale agreement signed"),
-        TimelineEvent(date="15 March 2023", event="Deposit of KES 500,000 paid; possession granted"),
-        TimelineEvent(date="after 15 March 2023", event="Sarah refuses to execute transfer documents"),
+        TimelineEvent(
+            date="15 March 2023", event="Deposit of KES 500,000 paid; possession granted"
+        ),
+        TimelineEvent(
+            date="after 15 March 2023", event="Sarah refuses to execute transfer documents"
+        ),
     ],
 )
 
@@ -137,7 +141,10 @@ SAMPLE_CASE = (
     "John now seeks specific performance and damages."
 )
 
-ANALYZE_FORM_BODY = {"title": "John Kamau v. Sarah Wanjiru — land dispute", "case_text": SAMPLE_CASE}
+ANALYZE_FORM_BODY = {
+    "title": "John Kamau v. Sarah Wanjiru — land dispute",
+    "case_text": SAMPLE_CASE,
+}
 
 USER_A = "user-alice-001"
 USER_B = "user-bob-002"
@@ -225,7 +232,7 @@ async def collect_sse(response) -> list[dict]:
     events = []
     async for line in response.aiter_lines():
         if line.startswith("data:"):
-            events.append(json.loads(line[len("data:"):].strip()))
+            events.append(json.loads(line[len("data:") :].strip()))
     return events
 
 

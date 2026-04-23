@@ -92,6 +92,7 @@ def test_chunk_text_full_coverage_no_content_lost():
 
 # Shared mock factories
 
+
 def _embed_mock(embedding: list[float] | None = None):
     """AsyncMock for _openai.embeddings.create returning a single embedding."""
     vec = embedding or [0.1] * 1536
@@ -321,9 +322,7 @@ def test_ingest_documents_chunk_ids_are_all_unique(raw_dir_two_files: Path, tmp_
     assert len(ids) == len(set(ids))
 
 
-def test_ingest_documents_metadata_records_source_filename(
-    raw_dir_two_files: Path, tmp_path: Path
-):
+def test_ingest_documents_metadata_records_source_filename(raw_dir_two_files: Path, tmp_path: Path):
     mock_col, mock_client = _patch_ingest()
     with (
         patch("src.rag.ingestion.get_async_client", return_value=mock_client),

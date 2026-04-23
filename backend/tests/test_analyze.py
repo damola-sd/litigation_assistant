@@ -298,7 +298,9 @@ async def test_drafting_brief_persisted_with_required_sections(client, mock_agen
     """The brief stored in DB must include all sections mandated by the drafting prompt."""
     case_id = await run_analyze(client)
     detail = (await client.get(f"/api/v1/cases/{case_id}", headers=HEADERS_A)).json()
-    brief = next(s for s in detail["steps"] if s["step_name"] == "drafting")["result"]["brief_markdown"]
+    brief = next(s for s in detail["steps"] if s["step_name"] == "drafting")["result"][
+        "brief_markdown"
+    ]
     for section in [
         "## FACTS",
         "## ISSUES FOR DETERMINATION",

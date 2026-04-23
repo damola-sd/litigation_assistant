@@ -181,7 +181,7 @@ litigation-prep-assistant/
 │   │   ├── serializers/                    # DB model -> API schema adapters
 │   │   └── services/case_file_text.py      # PDF/TXT extraction from uploaded files
 │   ├── evals/
-│   │   ├── golden_cases.json               # 3 representative Kenyan cases with expected output constraints
+│   │   ├── golden_cases.json               # 11 golden scenarios with expected output constraints
 │   │   ├── eval_extraction.py              # schema regression: runs agent, checks constraints
 │   │   └── eval_llm_judge.py               # GPT-4o scores full pipeline on 3 rubric dimensions
 │   └── tests/
@@ -330,16 +330,18 @@ uv run pytest tests/ --cov=src --cov-report=term-missing
 
 ### Evaluations (live API calls, incurs cost)
 
-Two offline eval scripts are provided in `backend/evals/`:
+Two eval scripts live in `backend/evals/` (they exit **0** on pass, **1** on failure):
 
 ```bash
-# Schema regression against 3 golden Kenyan cases
+# Golden-case extraction checks — runs every case in golden_cases.json (11 scenarios)
 uv run python -m evals.eval_extraction
 
-# LLM-as-judge scoring of the full pipeline (GPT-4o scores completeness, grounding, actionability)
+# LLM-as-judge — full pipeline + GPT-4o scores per case (~$0.30+ for all cases; run sparingly)
 uv run python -m evals.eval_llm_judge
 uv run python -m evals.eval_llm_judge --threshold 3.5   # stricter pass threshold
 ```
+
+**GitHub Actions (`evals.yml`):** On path-filtered pushes to **`main`**, **`eval_extraction`** runs against every row in **`backend/evals/golden_cases.json`** (**11** golden cases). The **`extraction-eval`** job uses **`continue-on-error: true`**, so the workflow does not block merges when the eval fails or **`OPENAI_API_KEY`** is missing—use the job log for pass/fail. To block merges on golden-case regression, add **`OPENAI_API_KEY`** as a repo secret and remove **`continue-on-error`**. **`eval_llm_judge`** runs only via **Actions → Evaluations → Run workflow** with the optional checkbox (~**$0.30+** per full run). See **`docs/PROJECT_WALKTHROUGH.md`** §22 for tables and rubric mapping.
 
 ---
 
@@ -454,7 +456,7 @@ All LLM calls use OpenAI `gpt-4o` (or the equivalent model on OpenRouter). Embed
 - The extraction and strategy steps are the cheapest; the drafting step is the most expensive because it produces a long brief.
 - To reduce cost during development, set a shorter `agent_step_timeout_seconds` in `.env` to fail fast, or mock agents in test runs (the test suite has zero API cost by design).
 - Switching to `gpt-4o-mini` via `OPENROUTER_API_KEY` pointing at a cheaper model cuts cost by ~10× at the expense of brief quality.
-- The LLM-as-judge eval (`eval_llm_judge.py`) adds a second GPT-4o call per case (~$0.04 extra) — only run it before releases, not on every push.
+- The LLM-as-judge eval (`eval_llm_judge.py`) runs the full pipeline plus a judge call per golden case (~**$0.30+** for all cases) — keep it **manual** in CI or run locally before releases.
 
 ---
 
@@ -474,7 +476,7 @@ All LLM calls use OpenAI `gpt-4o` (or the equivalent model on OpenRouter). Embed
 | Relational database | PostgreSQL / SQLite (SQLAlchemy async) |
 | Real-time streaming | Server-Sent Events (SSE) |
 | Package manager (BE) | uv |
-| CI/CD | GitHub Actions (pytest + ruff + mypy + coverage gate + Next.js build) |
+| CI/CD | GitHub Actions: backend lint/types/tests + coverage; optional **`evals.yml`** (golden extraction eval, non-blocking by default); frontend build |
 
 ---
 
@@ -517,4 +519,7 @@ All LLM calls use OpenAI `gpt-4o` (or the equivalent model on OpenRouter). Embed
 
 - [backend/README.md](./backend/README.md) -- Python layout, dependencies, and local run instructions
 - [frontend/README.md](./frontend/README.md) -- Next.js scripts, routing, and environment variables
+- [docs/backend.md](./docs/backend.md) -- API reference, SSE format, integration notes
 - [docs/rag_integration_guide.md](./docs/rag_integration_guide.md) -- RAG pipeline design, ingestion walkthrough, retrieval internals, and ChromaDB configuration
+- [docs/DOCUMENTATION_AUDIT_LOG.md](./docs/DOCUMENTATION_AUDIT_LOG.md) -- Doc–code audit (2026-04-21): rubric mapping, pytest/Ruff results, archive pointers
+- [docs/archive/](./docs/archive/) -- Snapshots of superseded markdown (`*.pre-audit-2026-04-21.md`) for easy diffing

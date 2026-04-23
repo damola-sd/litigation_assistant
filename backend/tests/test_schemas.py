@@ -32,8 +32,14 @@ from src.schemas.ai_schemas import (
 def test_entity_accepts_all_improved_types():
     """The improved extraction prompt uses an expanded type vocabulary."""
     for entity_type in [
-        "person", "company", "government_body", "place",
-        "document", "court", "contract", "statute",
+        "person",
+        "company",
+        "government_body",
+        "place",
+        "document",
+        "court",
+        "contract",
+        "statute",
     ]:
         e = Entity(name="Test", type=entity_type, role="test role")
         assert e.type == entity_type
