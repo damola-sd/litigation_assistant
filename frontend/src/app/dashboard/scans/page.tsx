@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { useUser } from "@clerk/nextjs";
 
-import { deleteCase, getCases, type HistoryItem } from "@/lib/api";
+import { type HistoryItem } from "@/lib/api";
+import { useApiClient } from "@/lib/useApiClient";
 
 function truncateCaseText(s: string, maxLen = 140) {
   const t = s.replace(/\s+/g, " ").trim();
@@ -15,8 +15,7 @@ function truncateCaseText(s: string, maxLen = 140) {
 
 export default function ScansPage() {
   const router = useRouter();
-  const { user, isLoaded } = useUser();
-  const userId = user?.id;
+  const { isLoaded, getCases, deleteCase } = useApiClient();
 
   const [items, setItems] = useState<HistoryItem[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -37,10 +36,7 @@ export default function ScansPage() {
       setLoading(true);
       setError(null);
       try {
-        const data = await getCases(
-          userId,
-          debouncedSearch ? debouncedSearch : undefined,
-        );
+        const data = await getCases(debouncedSearch || undefined);
         if (!cancelled) setItems(data);
       } catch (e) {
         if (!cancelled) {
@@ -53,14 +49,14 @@ export default function ScansPage() {
     return () => {
       cancelled = true;
     };
-  }, [isLoaded, userId, debouncedSearch]);
+  }, [isLoaded, debouncedSearch, getCases]);
 
   async function handleDelete(caseId: string) {
     if (!confirm("Delete this scan? This cannot be undone.")) return;
     setDeletingId(caseId);
     setError(null);
     try {
-      await deleteCase(caseId, userId);
+      await deleteCase(caseId);
       setItems((prev) => prev.filter((r) => r.id !== caseId));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Delete failed");

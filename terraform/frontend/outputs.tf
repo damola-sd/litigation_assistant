@@ -1,6 +1,6 @@
 output "app_runner_url" {
   description = "The URL of the frontend App Runner service"
-  value       = aws_apprunner_service.frontend.service_url
+  value       = "https://${aws_apprunner_service.frontend.service_url}"
 }
 
 output "ecr_repository_url" {

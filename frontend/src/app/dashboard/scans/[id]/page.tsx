@@ -3,20 +3,19 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { useUser } from "@clerk/nextjs";
 
 import {
   PipelineMarkdownPanel,
   type MarkdownSection,
 } from "@/components/pipeline-markdown-panel";
 import { STEP_HEADINGS, stepResultToMarkdown } from "@/lib/agent-step-markdown";
-import { getCase, type HistoryDetail } from "@/lib/api";
+import { type HistoryDetail } from "@/lib/api";
+import { useApiClient } from "@/lib/useApiClient";
 
 export default function ScanDetailPage() {
   const params = useParams();
   const id = typeof params.id === "string" ? params.id : "";
-  const { user, isLoaded } = useUser();
-  const userId = user?.id;
+  const { isLoaded, getCase } = useApiClient();
 
   const [detail, setDetail] = useState<HistoryDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -30,7 +29,7 @@ export default function ScanDetailPage() {
       setError(null);
       setDetail(null);
       try {
-        const data = await getCase(id, userId);
+        const data = await getCase(id);
         if (!cancelled) setDetail(data);
       } catch (e) {
         if (!cancelled) {
@@ -43,7 +42,7 @@ export default function ScanDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [isLoaded, id, userId]);
+  }, [isLoaded, id, getCase]);
 
   const sections: MarkdownSection[] = useMemo(() => {
     if (!detail?.steps?.length) return [];

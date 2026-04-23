@@ -9,8 +9,8 @@
 [![Tests](https://img.shields.io/badge/tests-143%20passing-22C55E?logo=pytest&logoColor=white)](./backend/tests)
 [![Backend CI](https://github.com/Andela-AI-Engineering-Bootcamp/litigation-prep-assistant/actions/workflows/backend-deploy.yml/badge.svg)](https://github.com/Andela-AI-Engineering-Bootcamp/litigation-prep-assistant/actions/workflows/backend-deploy.yml)
 [![Frontend CI](https://github.com/Andela-AI-Engineering-Bootcamp/litigation-prep-assistant/actions/workflows/frontend-deploy.yml/badge.svg)](https://github.com/Andela-AI-Engineering-Bootcamp/litigation-prep-assistant/actions/workflows/frontend-deploy.yml)
-[![Vercel](https://img.shields.io/badge/Frontend-Vercel-000000?logo=vercel&logoColor=white)](https://vercel.com)
-[![Render](https://img.shields.io/badge/Backend-Render-46E3B7?logo=render&logoColor=white)](https://render.com)
+[![AWS App Runner](https://img.shields.io/badge/Frontend-AWS%20App%20Runner-FF9900?logo=amazonaws&logoColor=white)](https://aws.amazon.com/apprunner/)
+[![AWS App Runner](https://img.shields.io/badge/Backend-AWS%20App%20Runner-FF9900?logo=amazonaws&logoColor=white)](https://aws.amazon.com/apprunner/)
 [![uv](https://img.shields.io/badge/uv-package%20manager-DE5FE9?logo=astral&logoColor=white)](https://docs.astral.sh/uv/)
 
 > **AI-powered litigation preparation for Kenyan law firms and paralegals.**
@@ -32,14 +32,14 @@ flowchart TB
 
     subgraph Client_Tier [Client & UI Tier]
         U((User / Lawyer))
-        FE[Next.js App Router<br>Vercel]:::frontend
+        FE[Next.js App Router<br>AWS App Runner]:::frontend
     end
 
     subgraph External_Services[Identity & Billing]
         Clerk[Clerk Auth & Billing UI]:::external
     end
 
-    subgraph Backend_Tier [Backend Application Tier - FastAPI on Render]
+    subgraph Backend_Tier [Backend Application Tier - FastAPI on AWS App Runner]
         API_GW[FastAPI REST / API Router]:::backend
         Auth_MW[Clerk JWT Middleware]:::backend
         SSE[SSE Streamer<br>Step-by-step updates]:::backend
@@ -429,9 +429,9 @@ Each line has the form `data: <json>\n\n`. Three event types are emitted:
 
 | Service | Platform | Notes |
 |---------|----------|-------|
-| Frontend | [Vercel](https://vercel.com) | Set project root to `frontend/`; `vercel.json` preset included |
-| Backend | [Render](https://render.com) | Use `infra/Dockerfile.backend`; set all env vars in Render dashboard |
-| Database | Render Postgres / any managed PG | Point `DATABASE_URL` at your instance |
+| Frontend | [AWS App Runner](https://aws.amazon.com/apprunner/) | ECR image built from `frontend/Dockerfile`; provisioned via `terraform/frontend/` |
+| Backend | [AWS App Runner](https://aws.amazon.com/apprunner/) | ECR image built from `backend/Dockerfile`; provisioned via `terraform/backend/` |
+| Database | [AWS Aurora Serverless v2](https://aws.amazon.com/rds/aurora/serverless/) (PostgreSQL 15) | Provisioned via `terraform/database/`; credentials stored in Secrets Manager |
 | Vector store | Packed into Docker image or mounted volume | See `data/vector_db/` -- add to `.dockerignore` carefully |
 
 ---
@@ -493,7 +493,7 @@ All LLM calls use OpenAI `gpt-4o` (or the equivalent model on OpenRouter). Embed
 | structlog for logging | Newline-delimited JSON in production is ingestible by any log aggregator without format negotiation; per-step LLM telemetry (latency, tokens) is emitted at `INFO` level |
 | OpenAI / OpenRouter priority selection | The shared client factory checks `OPENAI_API_KEY` first, then `OPENROUTER_API_KEY`; no agent code changes are needed to switch providers |
 | Clerk JWKS validation server-side | Bearer tokens are verified against Clerk's public JWKS with a 5-minute in-memory cache, avoiding a network round-trip on every request while still rotating keys within a reasonable window |
-| SQLite in dev, Postgres in prod | SQLAlchemy async supports both via `DATABASE_URL`; SQLite requires zero setup for local development and CI, while Postgres handles concurrent production writes without locking issues |
+| SQLite in dev, Aurora (PostgreSQL) in prod | SQLAlchemy async supports both via `DATABASE_URL`; SQLite requires zero setup for local development and CI, while Aurora Serverless v2 handles concurrent production writes without locking issues |
 | ChromaDB as the vector store | Embedded Python library with no separate process or infra to manage; the index is a directory on disk that travels with the Docker image; suitable for a corpus up to ~100K chunks before a hosted solution is warranted |
 | 800-char chunks with 100-char overlap | A chunk must be large enough to contain a complete statutory sentence (~3–5 lines) but small enough that the top-k results fit in the strategy prompt context window; overlap prevents a relevant sentence from being split across two non-adjacent chunks |
 | RAG retrieval before strategy (not before extraction) | Extraction works on raw facts and needs no legal context; RAG results are passed to strategy where statute grounding is needed to map facts to legal arguments; this avoids inflating the extraction prompt unnecessarily |
@@ -511,7 +511,7 @@ All LLM calls use OpenAI `gpt-4o` (or the equivalent model on OpenRouter). Embed
 | **John** | Next.js frontend (App Router), Clerk integration (auth + billing UI) |
 | **Amit** | RAG pipeline, legal dataset ingestion + embeddings |
 | **Damola** | Agent design (prompts + reasoning flow), QA agent logic |
-| **Sodiq** | Deployment (Vercel + Render), database setup, logging + monitoring |
+| **Sodiq** | Deployment (AWS App Runner + Aurora), database setup, logging + monitoring |
 
 ---
 

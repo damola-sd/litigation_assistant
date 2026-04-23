@@ -416,7 +416,16 @@ The shipped client uses **`FormData`** + **`fetch`** + a **`ReadableStream`** re
 
 **REST history:** list/detail responses include `title`, `raw_input`, `status`, `created_at`, and embedded `steps[].result` JSON (structured agent outputs — not the SSE Markdown strings).
 
-**CORS:** add your deployed origin to `ALLOWED_ORIGINS` / `allowed_origins` in settings.
+**Key field locations:**
+| What | Where |
+|------|-------|
+| Brief markdown | `data.data.brief_markdown` on the `drafting` completed event |
+| Risk level | `data.data.risk_level` on the `qa` completed event (`"LOW"`, `"MEDIUM"`, `"HIGH"`) |
+| Hallucination warnings | `data.data.hallucination_warnings` on the `qa` completed event (array of strings) |
+| Case ID after completion | `data.case_id` on the `done` event |
+| History case text | `raw_input` field (not `case_text`) on `/api/v1/cases` response |
+
+**CORS:** if you hit a CORS error, add your App Runner frontend URL to `allowed_origins` in `src/core/config.py`, or set the `ALLOWED_ORIGINS` env var in the backend App Runner service (via Terraform variable or AWS Secrets Manager).
 
 ---
 

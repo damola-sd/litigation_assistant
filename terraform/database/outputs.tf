@@ -33,29 +33,5 @@ output "setup_instructions" {
     Database Details:
     - Cluster: ${aws_rds_cluster.aurora.cluster_identifier}
     - Database: ${aws_rds_cluster.aurora.database_name}
-    - Data API: Enabled
-    
-    Add the following to your .env file:
-    AURORA_CLUSTER_ARN=${aws_rds_cluster.aurora.arn}
-    AURORA_SECRET_ARN=${aws_secretsmanager_secret.db_credentials.arn}
-    
-    Test the Data API connection:
-    aws rds-data execute-statement \
-      --resource-arn ${aws_rds_cluster.aurora.arn} \
-      --secret-arn ${aws_secretsmanager_secret.db_credentials.arn} \
-      --database litigation \
-      --sql "SELECT version()"
-    
-    To set up the database schema:
-    cd backend/database
-    uv run run_migrations.py
-    
-    To load sample data:
-    uv run reset_db.py --with-test-data
-    
-    💰 Cost Management:
-    - Current scaling: ${var.min_capacity} - ${var.max_capacity} ACUs
-    - Estimated cost: ~$43/month minimum
-    - To pause: Set min_capacity to 0 (cluster will pause after 5 minutes of inactivity)
   EOT
 }
