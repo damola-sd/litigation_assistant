@@ -2,7 +2,7 @@
 
 > **Who this is for:** A beginner who wants to understand every part of this project in depth — what each file does, why it was built that way, how data flows from a user typing a case description to a finished legal brief appearing on screen, and what design decisions were made and why.
 
-**Doc maintenance (2026-04-22):** Test counts match `uv run pytest tests/ -q` (**143** passed) and `pytest tests/ --collect-only -q`. Per‑file totals: `test_health` 3, `test_me` 5, `test_schemas` 26, `test_rag` 38, `test_analyze` 45, `test_history` 26. Audit trail: [`docs/DOCUMENTATION_AUDIT_LOG.md`](./DOCUMENTATION_AUDIT_LOG.md); snapshot: [`docs/archive/PROJECT_WALKTHROUGH.md.pre-audit-2026-04-22.md`](./archive/PROJECT_WALKTHROUGH.md.pre-audit-2026-04-22.md).
+**Doc maintenance (2026-04-22):** Test counts match `uv run pytest tests/ -q` (**143** passed) and `pytest tests/ --collect-only -q`. Per‑file totals: `test_health` 3, `test_me` 5, `test_schemas` 26, `test_rag` 38, `test_analyze` 45, `test_history` 26. Audit trail: [`docs/DOCUMENTATION_AUDIT_LOG.md`](./DOCUMENTATION_AUDIT_LOG.md).
 
 ---
 
