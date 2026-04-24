@@ -1,6 +1,7 @@
 """Lazily construct the Pinecone index handle used by ingestion and retrieval."""
 
 from functools import lru_cache
+from typing import Any
 
 from pinecone import Pinecone
 
@@ -8,7 +9,7 @@ from src.core.config import settings
 
 
 @lru_cache(maxsize=1)
-def get_pinecone_index():  # type: ignore[no-untyped-def]
+def get_pinecone_index() -> Any:
     """Return a Pinecone ``Index`` for upserts and queries.
 
     Prefer ``PINECONE_INDEX_HOST`` (from the Pinecone console for serverless indexes).

@@ -114,7 +114,7 @@ async def _ingest_documents_async(raw_dir: Path = RAW_DIR) -> dict:
         upsert_kwargs: dict = {"vectors": batch_vectors}
         if ns:
             upsert_kwargs["namespace"] = ns
-        index.upsert(**upsert_kwargs)  # type: ignore[arg-type]
+        index.upsert(**upsert_kwargs)
         logger.info(
             "ingestion_upsert_batch_complete",
             batch_start=start,
