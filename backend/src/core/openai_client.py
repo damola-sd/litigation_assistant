@@ -36,20 +36,22 @@ def get_async_client() -> AsyncOpenAI:
 
 
 def _build_client() -> AsyncOpenAI:
+    client_cls: type[AsyncOpenAI]
     if _langfuse_enabled():
         import os
         os.environ.setdefault("LANGFUSE_PUBLIC_KEY", settings.langfuse_public_key)
         os.environ.setdefault("LANGFUSE_SECRET_KEY", settings.langfuse_secret_key)
         os.environ.setdefault("LANGFUSE_HOST", settings.langfuse_host)
-        from langfuse.openai import AsyncOpenAI as _AsyncOpenAI
+        from langfuse.openai import AsyncOpenAI as _LangfuseAsyncOpenAI
+        client_cls = _LangfuseAsyncOpenAI
     else:
-        _AsyncOpenAI = AsyncOpenAI
+        client_cls = AsyncOpenAI
 
     if settings.openai_api_key:
-        return _AsyncOpenAI(api_key=settings.openai_api_key)
+        return client_cls(api_key=settings.openai_api_key)
 
     if settings.openrouter_api_key:
-        return _AsyncOpenAI(
+        return client_cls(
             api_key=settings.openrouter_api_key,
             base_url=_OPENROUTER_BASE_URL,
         )
