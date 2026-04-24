@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     openrouter_api_key: str = ""
     model: str = "gpt-4o"
+    langfuse_public_key: str = ""
+    langfuse_secret_key: str = ""
+    langfuse_host: str = "https://cloud.langfuse.com"
     clerk_jwks_url: str = ""
     allowed_origins: list[str] | str = ["http://localhost:3000"]
 

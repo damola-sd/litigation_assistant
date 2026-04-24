@@ -16,6 +16,13 @@ variable "openai_api_key" {
   sensitive   = true
 }
 
+variable "openrouter_api_key" {
+  description = "Optional OpenRouter API Key"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
 variable "openai_model" {
   description = "OpenAI Model to use"
   type        = string
@@ -63,4 +70,24 @@ variable "pinecone_namespace" {
   type        = string
   sensitive   = false
   default     = ""
+}
+
+variable "langfuse_public_key" {
+  description = "Langfuse public key for LLM observability (optional; leave empty to disable tracing)"
+  type        = string
+  sensitive   = false
+  default     = ""
+}
+
+variable "langfuse_secret_key" {
+  description = "Langfuse secret key for LLM observability"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "langfuse_host" {
+  description = "Langfuse host URL"
+  type        = string
+  default     = "https://cloud.langfuse.com"
 }

@@ -19,6 +19,10 @@ _OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 _client: AsyncOpenAI | None = None
 
 
+def _langfuse_enabled() -> bool:
+    return bool(settings.langfuse_public_key and settings.langfuse_secret_key)
+
+
 def get_async_client() -> AsyncOpenAI:
     """Return the process-level AsyncOpenAI singleton, creating it on first call.
 
@@ -32,11 +36,22 @@ def get_async_client() -> AsyncOpenAI:
 
 
 def _build_client() -> AsyncOpenAI:
+    client_cls: type[AsyncOpenAI]
+    if _langfuse_enabled():
+        import os
+        os.environ.setdefault("LANGFUSE_PUBLIC_KEY", settings.langfuse_public_key)
+        os.environ.setdefault("LANGFUSE_SECRET_KEY", settings.langfuse_secret_key)
+        os.environ.setdefault("LANGFUSE_HOST", settings.langfuse_host)
+        from langfuse.openai import AsyncOpenAI as _LangfuseAsyncOpenAI
+        client_cls = _LangfuseAsyncOpenAI
+    else:
+        client_cls = AsyncOpenAI
+
     if settings.openai_api_key:
-        return AsyncOpenAI(api_key=settings.openai_api_key)
+        return client_cls(api_key=settings.openai_api_key)
 
     if settings.openrouter_api_key:
-        return AsyncOpenAI(
+        return client_cls(
             api_key=settings.openrouter_api_key,
             base_url=_OPENROUTER_BASE_URL,
         )

@@ -247,7 +247,27 @@ This updates the secret in Secrets Manager. App Runner will pick it up on the ne
 
 ## Re-deploying After Code Changes
 
-When you push new code, rebuild and push the image. App Runner with auto-deployment enabled will detect the new image and redeploy.
+Each service has a deploy script that handles ECR authentication, image build, and push automatically. App Runner with auto-deployment enabled will detect the new image and redeploy.
+
+### Backend
+
+```bash
+./backend/deploy.sh
+```
+
+The script resolves `BACKEND_ECR_URL` from Terraform state automatically if it is not already exported in your shell.
+
+### Frontend
+
+```bash
+./frontend/deploy.sh
+```
+
+The script resolves `FRONTEND_ECR_URL` and `NEXT_PUBLIC_API_URL` from Terraform state automatically. `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` is read from `frontend/.env.local` if not already exported.
+
+> **Note:** The frontend image bakes `NEXT_PUBLIC_*` values at build time. Rebuild whenever `NEXT_PUBLIC_API_URL` or `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` changes.
+
+### Manual steps (if needed without the scripts)
 
 **Backend:**
 
@@ -258,7 +278,7 @@ docker tag litigation-backend:latest $BACKEND_ECR_URL:latest
 docker push $BACKEND_ECR_URL:latest
 ```
 
-**Frontend** (rebuild required whenever `NEXT_PUBLIC_*` values change):
+**Frontend:**
 
 ```bash
 cd frontend
