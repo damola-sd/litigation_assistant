@@ -3,14 +3,14 @@ Tests for the RAG pipeline components.
 
 Three test groups:
   1. chunk_text       — pure unit tests, no mocking needed
-  2. rag_retrieve     — mocked OpenAI embeddings + ChromaDB collection
-  3. ingest_documents — mocked OpenAI + temp filesystem + mocked ChromaDB
+  2. rag_retrieve     — mocked OpenAI embeddings + Pinecone index
+  3. ingest_documents — mocked OpenAI + temp filesystem + mocked Pinecone
 
 Integration group (bottom of file):
   4. Pipeline integration — RAG chunks flow correctly into the strategy agent
      and are reflected in SSE events and persisted DB results.
 
-All ChromaDB and OpenAI calls are mocked; no network, no disk, no API cost.
+All Pinecone and OpenAI calls are mocked; no network, no disk, no API cost.
 """
 
 from pathlib import Path
@@ -20,6 +20,7 @@ import pytest
 
 from src.rag.ingestion import CHUNK_OVERLAP, CHUNK_SIZE, chunk_text, ingest_documents
 from src.rag.retriever import rag_retrieve
+from src.rag.vector_store import PINECONE_METADATA_TEXT_KEY
 from tests.conftest import ANALYZE_FORM_BODY, HEADERS_A, collect_sse, run_analyze
 
 # ── 1. chunk_text ─────────────────────────────────────────────────────────────
@@ -99,20 +100,24 @@ def _embed_mock(embedding: list[float] | None = None):
     return AsyncMock(return_value=MagicMock(data=[MagicMock(embedding=vec)]))
 
 
-def _collection_mock(docs: list[str], count: int | None = None):
-    """MagicMock for a ChromaDB collection."""
-    col = MagicMock()
-    col.count.return_value = count if count is not None else len(docs)
-    col.query.return_value = {"documents": [docs]}
-    return col
+def _index_mock_for_docs(texts: list[str]):
+    """MagicMock Pinecone index whose ``query`` returns matches with metadata."""
+    matches = []
+    for t in texts:
+        m = MagicMock()
+        m.metadata = {PINECONE_METADATA_TEXT_KEY: t}
+        matches.append(m)
+    idx = MagicMock()
+    idx.query.return_value = MagicMock(matches=matches)
+    return idx
 
 
 async def test_rag_retrieve_returns_list_of_strings():
-    col = _collection_mock(["Chunk A.", "Chunk B."])
+    idx = _index_mock_for_docs(["Chunk A.", "Chunk B."])
     with (
         patch("src.rag.retriever._openai") as mock_openai,
-        patch("src.rag.retriever.get_chroma_client"),
-        patch("src.rag.retriever.get_collection", return_value=col),
+        patch("src.rag.retriever.pinecone_configured", return_value=True),
+        patch("src.rag.retriever.get_pinecone_index", return_value=idx),
     ):
         mock_openai.embeddings.create = _embed_mock()
         result = await rag_retrieve("contract dispute Kenya")
@@ -122,28 +127,29 @@ async def test_rag_retrieve_returns_list_of_strings():
 
 async def test_rag_retrieve_returns_correct_chunk_content():
     expected = ["Section 3(3) Law of Contract Act.", "Section 38 Land Act."]
-    col = _collection_mock(expected)
+    idx = _index_mock_for_docs(expected)
     with (
         patch("src.rag.retriever._openai") as mock_openai,
-        patch("src.rag.retriever.get_chroma_client"),
-        patch("src.rag.retriever.get_collection", return_value=col),
+        patch("src.rag.retriever.pinecone_configured", return_value=True),
+        patch("src.rag.retriever.get_pinecone_index", return_value=idx),
     ):
         mock_openai.embeddings.create = _embed_mock()
         result = await rag_retrieve("contract dispute")
     assert result == expected
 
 
-async def test_rag_retrieve_empty_collection_returns_empty_list():
-    col = _collection_mock([], count=0)
+async def test_rag_retrieve_empty_index_returns_empty_list():
+    idx = MagicMock()
+    idx.query.return_value = MagicMock(matches=[])
     with (
         patch("src.rag.retriever._openai") as mock_openai,
-        patch("src.rag.retriever.get_chroma_client"),
-        patch("src.rag.retriever.get_collection", return_value=col),
+        patch("src.rag.retriever.pinecone_configured", return_value=True),
+        patch("src.rag.retriever.get_pinecone_index", return_value=idx),
     ):
         mock_openai.embeddings.create = _embed_mock()
         result = await rag_retrieve("anything")
     assert result == []
-    col.query.assert_not_called()
+    idx.query.assert_called_once()
 
 
 async def test_rag_retrieve_empty_query_returns_empty_list_no_openai_call():
@@ -160,51 +166,58 @@ async def test_rag_retrieve_whitespace_query_returns_empty_list():
     mock_openai.embeddings.create.assert_not_called()
 
 
-async def test_rag_retrieve_passes_correct_embedding_to_chroma():
+async def test_rag_retrieve_passes_correct_embedding_to_pinecone():
     expected_vec = [0.42] * 1536
-    col = _collection_mock(["doc"])
+    idx = _index_mock_for_docs(["doc"])
     with (
         patch("src.rag.retriever._openai") as mock_openai,
-        patch("src.rag.retriever.get_chroma_client"),
-        patch("src.rag.retriever.get_collection", return_value=col),
+        patch("src.rag.retriever.pinecone_configured", return_value=True),
+        patch("src.rag.retriever.get_pinecone_index", return_value=idx),
     ):
         mock_openai.embeddings.create = _embed_mock(expected_vec)
         await rag_retrieve("some legal query")
-    call_kwargs = col.query.call_args.kwargs
-    assert call_kwargs["query_embeddings"] == [expected_vec]
+    call_kwargs = idx.query.call_args.kwargs
+    assert call_kwargs["vector"] == expected_vec
 
 
 async def test_rag_retrieve_respects_n_results_argument():
-    col = _collection_mock(["A", "B"], count=10)
+    idx = _index_mock_for_docs(["A", "B"])
     with (
         patch("src.rag.retriever._openai") as mock_openai,
-        patch("src.rag.retriever.get_chroma_client"),
-        patch("src.rag.retriever.get_collection", return_value=col),
+        patch("src.rag.retriever.pinecone_configured", return_value=True),
+        patch("src.rag.retriever.get_pinecone_index", return_value=idx),
     ):
         mock_openai.embeddings.create = _embed_mock()
         await rag_retrieve("query", n_results=2)
-    assert col.query.call_args.kwargs["n_results"] == 2
+    assert idx.query.call_args.kwargs["top_k"] == 2
 
 
-async def test_rag_retrieve_caps_n_results_at_collection_size():
-    # Collection has 2 docs; request 10 → query must use n_results=2
-    col = _collection_mock(["A", "B"], count=2)
+async def test_rag_retrieve_passes_requested_top_k_to_pinecone():
+    """Pinecone returns up to ``top_k`` matches; we pass the requested value through."""
+    idx = _index_mock_for_docs(["A", "B"])
     with (
         patch("src.rag.retriever._openai") as mock_openai,
-        patch("src.rag.retriever.get_chroma_client"),
-        patch("src.rag.retriever.get_collection", return_value=col),
+        patch("src.rag.retriever.pinecone_configured", return_value=True),
+        patch("src.rag.retriever.get_pinecone_index", return_value=idx),
     ):
         mock_openai.embeddings.create = _embed_mock()
         await rag_retrieve("query", n_results=10)
-    assert col.query.call_args.kwargs["n_results"] == 2
+    assert idx.query.call_args.kwargs["top_k"] == 10
 
 
 async def test_rag_retrieve_filters_out_empty_document_strings():
-    col = _collection_mock(["Valid chunk.", "", "  ", "Another chunk."])
+    texts = ["Valid chunk.", "", "  ", "Another chunk."]
+    matches = []
+    for t in texts:
+        m = MagicMock()
+        m.metadata = {PINECONE_METADATA_TEXT_KEY: t}
+        matches.append(m)
+    idx = MagicMock()
+    idx.query.return_value = MagicMock(matches=matches)
     with (
         patch("src.rag.retriever._openai") as mock_openai,
-        patch("src.rag.retriever.get_chroma_client"),
-        patch("src.rag.retriever.get_collection", return_value=col),
+        patch("src.rag.retriever.pinecone_configured", return_value=True),
+        patch("src.rag.retriever.get_pinecone_index", return_value=idx),
     ):
         mock_openai.embeddings.create = _embed_mock()
         result = await rag_retrieve("query")
@@ -213,16 +226,26 @@ async def test_rag_retrieve_filters_out_empty_document_strings():
     assert len(result) == 2
 
 
-async def test_rag_retrieve_uses_documents_include_parameter():
-    col = _collection_mock(["doc"])
+async def test_rag_retrieve_sets_include_metadata_true():
+    idx = _index_mock_for_docs(["doc"])
     with (
         patch("src.rag.retriever._openai") as mock_openai,
-        patch("src.rag.retriever.get_chroma_client"),
-        patch("src.rag.retriever.get_collection", return_value=col),
+        patch("src.rag.retriever.pinecone_configured", return_value=True),
+        patch("src.rag.retriever.get_pinecone_index", return_value=idx),
     ):
         mock_openai.embeddings.create = _embed_mock()
         await rag_retrieve("query")
-    assert col.query.call_args.kwargs["include"] == ["documents"]
+    assert idx.query.call_args.kwargs["include_metadata"] is True
+
+
+async def test_rag_retrieve_returns_empty_when_pinecone_not_configured():
+    with (
+        patch("src.rag.retriever._openai") as mock_openai,
+        patch("src.rag.retriever.pinecone_configured", return_value=False),
+    ):
+        result = await rag_retrieve("contract law")
+    assert result == []
+    mock_openai.embeddings.create.assert_not_called()
 
 
 # ── 3. ingest_documents ───────────────────────────────────────────────────────
@@ -247,8 +270,8 @@ def raw_dir_two_files(tmp_path: Path) -> Path:
 
 
 def _patch_ingest() -> tuple[MagicMock, MagicMock]:
-    """Build mocks for ingest_documents tests (async OpenAI client)."""
-    mock_col = MagicMock()
+    """Build mocks for ingest_documents tests (async OpenAI client + Pinecone index)."""
+    mock_index = MagicMock()
     mock_client = MagicMock()
 
     async def _create_embeddings(*args, model=None, input=None, **kwargs):  # noqa: A002
@@ -256,7 +279,7 @@ def _patch_ingest() -> tuple[MagicMock, MagicMock]:
         return MagicMock(data=[MagicMock(embedding=[0.1] * 1536) for _ in range(n)])
 
     mock_client.embeddings.create = AsyncMock(side_effect=_create_embeddings)
-    return mock_col, mock_client
+    return mock_index, mock_client
 
 
 def test_ingest_documents_empty_directory_returns_no_files_found(tmp_path: Path):
@@ -265,73 +288,93 @@ def test_ingest_documents_empty_directory_returns_no_files_found(tmp_path: Path)
     assert result["chunks_added"] == 0
 
 
+def test_ingest_documents_raises_when_pinecone_not_configured(
+    raw_dir_two_files: Path, tmp_path: Path
+):
+    mock_client = MagicMock()
+    mock_client.embeddings.create = AsyncMock(
+        return_value=MagicMock(data=[MagicMock(embedding=[0.1] * 1536)])
+    )
+    with (
+        patch("src.rag.ingestion.get_async_client", return_value=mock_client),
+        patch("src.rag.ingestion.pinecone_configured", return_value=False),
+        pytest.raises(ValueError, match="Pinecone is not configured"),
+    ):
+        ingest_documents(raw_dir=raw_dir_two_files, persist_dir=str(tmp_path / "vdb"))
+
+
 def test_ingest_documents_success_returns_ok_with_chunk_count(
     raw_dir_two_files: Path, tmp_path: Path
 ):
-    mock_col, mock_client = _patch_ingest()
+    mock_index, mock_client = _patch_ingest()
     with (
         patch("src.rag.ingestion.get_async_client", return_value=mock_client),
-        patch("src.rag.ingestion.get_chroma_client"),
-        patch("src.rag.ingestion.get_collection", return_value=mock_col),
+        patch("src.rag.ingestion.pinecone_configured", return_value=True),
+        patch("src.rag.ingestion.get_pinecone_index", return_value=mock_index),
     ):
         result = ingest_documents(raw_dir=raw_dir_two_files, persist_dir=str(tmp_path / "vdb"))
     assert result["detail"] == "ok"
     assert result["chunks_added"] > 0
 
 
-def test_ingest_documents_calls_collection_add_exactly_once(
-    raw_dir_two_files: Path, tmp_path: Path
-):
-    mock_col, mock_client = _patch_ingest()
+def test_ingest_documents_calls_upsert_at_least_once(raw_dir_two_files: Path, tmp_path: Path):
+    mock_index, mock_client = _patch_ingest()
     with (
         patch("src.rag.ingestion.get_async_client", return_value=mock_client),
-        patch("src.rag.ingestion.get_chroma_client"),
-        patch("src.rag.ingestion.get_collection", return_value=mock_col),
+        patch("src.rag.ingestion.pinecone_configured", return_value=True),
+        patch("src.rag.ingestion.get_pinecone_index", return_value=mock_index),
     ):
         ingest_documents(raw_dir=raw_dir_two_files, persist_dir=str(tmp_path / "vdb"))
-    mock_col.add.assert_called_once()
+    assert mock_index.upsert.call_count >= 1
 
 
-def test_ingest_documents_add_receives_matching_docs_ids_embeddings(
+def test_ingest_documents_upsert_vectors_match_chunk_count(
     raw_dir_two_files: Path, tmp_path: Path
 ):
-    mock_col, mock_client = _patch_ingest()
+    mock_index, mock_client = _patch_ingest()
     with (
         patch("src.rag.ingestion.get_async_client", return_value=mock_client),
-        patch("src.rag.ingestion.get_chroma_client"),
-        patch("src.rag.ingestion.get_collection", return_value=mock_col),
+        patch("src.rag.ingestion.pinecone_configured", return_value=True),
+        patch("src.rag.ingestion.get_pinecone_index", return_value=mock_index),
     ):
         result = ingest_documents(raw_dir=raw_dir_two_files, persist_dir=str(tmp_path / "vdb"))
-    kwargs = mock_col.add.call_args.kwargs
+    total = 0
+    for call in mock_index.upsert.call_args_list:
+        total += len(call.kwargs["vectors"])
     n = result["chunks_added"]
-    assert len(kwargs["documents"]) == n
-    assert len(kwargs["ids"]) == n
-    assert len(kwargs["embeddings"]) == n
-    assert len(kwargs["metadatas"]) == n
+    assert total == n
+    for call in mock_index.upsert.call_args_list:
+        for row in call.kwargs["vectors"]:
+            assert "id" in row and "values" in row and "metadata" in row
+            assert len(row["values"]) == 1536
 
 
 def test_ingest_documents_chunk_ids_are_all_unique(raw_dir_two_files: Path, tmp_path: Path):
-    mock_col, mock_client = _patch_ingest()
+    mock_index, mock_client = _patch_ingest()
     with (
         patch("src.rag.ingestion.get_async_client", return_value=mock_client),
-        patch("src.rag.ingestion.get_chroma_client"),
-        patch("src.rag.ingestion.get_collection", return_value=mock_col),
+        patch("src.rag.ingestion.pinecone_configured", return_value=True),
+        patch("src.rag.ingestion.get_pinecone_index", return_value=mock_index),
     ):
         ingest_documents(raw_dir=raw_dir_two_files, persist_dir=str(tmp_path / "vdb"))
-    ids = mock_col.add.call_args.kwargs["ids"]
+    ids: list[str] = []
+    for call in mock_index.upsert.call_args_list:
+        ids.extend(v["id"] for v in call.kwargs["vectors"])
     assert len(ids) == len(set(ids))
 
 
 def test_ingest_documents_metadata_records_source_filename(raw_dir_two_files: Path, tmp_path: Path):
-    mock_col, mock_client = _patch_ingest()
+    mock_index, mock_client = _patch_ingest()
     with (
         patch("src.rag.ingestion.get_async_client", return_value=mock_client),
-        patch("src.rag.ingestion.get_chroma_client"),
-        patch("src.rag.ingestion.get_collection", return_value=mock_col),
+        patch("src.rag.ingestion.pinecone_configured", return_value=True),
+        patch("src.rag.ingestion.get_pinecone_index", return_value=mock_index),
     ):
         ingest_documents(raw_dir=raw_dir_two_files, persist_dir=str(tmp_path / "vdb"))
-    metadatas = mock_col.add.call_args.kwargs["metadatas"]
-    sources = {m["source"] for m in metadatas}
+    sources: set[str] = set()
+    for call in mock_index.upsert.call_args_list:
+        for row in call.kwargs["vectors"]:
+            sources.add(row["metadata"]["source"])
     assert sources == {"contract_act.txt", "land_act_2012.txt"}
 
 
@@ -348,11 +391,11 @@ def test_ingest_documents_total_embeddings_match_chunks_embedded(
 
     mock_client = MagicMock()
     mock_client.embeddings.create = AsyncMock(side_effect=_create)
-    mock_col = MagicMock()
+    mock_index = MagicMock()
     with (
         patch("src.rag.ingestion.get_async_client", return_value=mock_client),
-        patch("src.rag.ingestion.get_chroma_client"),
-        patch("src.rag.ingestion.get_collection", return_value=mock_col),
+        patch("src.rag.ingestion.pinecone_configured", return_value=True),
+        patch("src.rag.ingestion.get_pinecone_index", return_value=mock_index),
     ):
         result = ingest_documents(raw_dir=raw_dir_two_files, persist_dir=str(tmp_path / "vdb"))
     assert sum(embedded_count) == result["chunks_added"]
@@ -360,15 +403,15 @@ def test_ingest_documents_total_embeddings_match_chunks_embedded(
 
 def test_ingest_documents_accepts_markdown_files(tmp_path: Path):
     (tmp_path / "notes.md").write_text("## Kenyan Employment Act\nKey provisions.\n" * 15)
-    mock_col = MagicMock()
+    mock_index = MagicMock()
     mock_client = MagicMock()
     mock_client.embeddings.create = AsyncMock(
         return_value=MagicMock(data=[MagicMock(embedding=[0.1] * 1536)])
     )
     with (
         patch("src.rag.ingestion.get_async_client", return_value=mock_client),
-        patch("src.rag.ingestion.get_chroma_client"),
-        patch("src.rag.ingestion.get_collection", return_value=mock_col),
+        patch("src.rag.ingestion.pinecone_configured", return_value=True),
+        patch("src.rag.ingestion.get_pinecone_index", return_value=mock_index),
     ):
         result = ingest_documents(raw_dir=tmp_path, persist_dir=str(tmp_path / "vdb"))
     assert result["detail"] == "ok"

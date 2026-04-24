@@ -40,11 +40,15 @@ resource "aws_secretsmanager_secret" "backend_secrets" {
 resource "aws_secretsmanager_secret_version" "backend_secrets" {
   secret_id     = aws_secretsmanager_secret.backend_secrets.id
   secret_string = jsonencode({
-    OPENAI_API_KEY  = var.openai_api_key
-    MODEL           = var.openai_model
-    CLERK_JWKS_URL  = var.clerk_jwks_url
-    CLERK_ISSUER    = var.clerk_issuer
-    ALLOWED_ORIGINS = var.allowed_origins
+    OPENAI_API_KEY       = var.openai_api_key
+    MODEL                = var.openai_model
+    CLERK_JWKS_URL       = var.clerk_jwks_url
+    CLERK_ISSUER         = var.clerk_issuer
+    ALLOWED_ORIGINS      = var.allowed_origins
+    PINECONE_API_KEY     = var.pinecone_api_key
+    PINECONE_INDEX_HOST  = var.pinecone_index_host
+    PINECONE_INDEX_NAME  = var.pinecone_index_name
+    PINECONE_NAMESPACE   = var.pinecone_namespace
   })
 }
 
@@ -144,6 +148,10 @@ resource "aws_apprunner_service" "backend" {
           CLERK_JWKS_URL           = "${aws_secretsmanager_secret.backend_secrets.arn}:CLERK_JWKS_URL::"
           CLERK_ISSUER             = "${aws_secretsmanager_secret.backend_secrets.arn}:CLERK_ISSUER::"
           ALLOWED_ORIGINS          = "${aws_secretsmanager_secret.backend_secrets.arn}:ALLOWED_ORIGINS::"
+          PINECONE_API_KEY         = "${aws_secretsmanager_secret.backend_secrets.arn}:PINECONE_API_KEY::"
+          PINECONE_INDEX_HOST      = "${aws_secretsmanager_secret.backend_secrets.arn}:PINECONE_INDEX_HOST::"
+          PINECONE_INDEX_NAME      = "${aws_secretsmanager_secret.backend_secrets.arn}:PINECONE_INDEX_NAME::"
+          PINECONE_NAMESPACE       = "${aws_secretsmanager_secret.backend_secrets.arn}:PINECONE_NAMESPACE::"
         }
       }
     }
