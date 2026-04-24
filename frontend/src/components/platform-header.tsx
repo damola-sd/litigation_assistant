@@ -8,14 +8,14 @@ export function PlatformHeader() {
       <div className="mx-auto flex h-12 max-w-[1920px] items-center px-4 sm:px-6">
         <Link
           href="/"
-          className="flex items-center md:hidden"
+          className="flex cursor-pointer items-center md:hidden"
           aria-label="Litigation Prep Assistant home"
         >
           <LitigationPrepMark className="h-9 w-9" />
         </Link>
         <Link
           href="/"
-          className="hidden text-lg font-semibold tracking-tight text-gray-900 transition-colors hover:text-blue-700 md:inline dark:text-gray-100 dark:hover:text-blue-300"
+          className="hidden cursor-pointer text-lg font-semibold tracking-tight text-gray-900 transition-colors hover:text-blue-700 md:inline dark:text-gray-100 dark:hover:text-blue-300"
         >
           Litigation Prep Assistant
         </Link>
