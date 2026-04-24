@@ -5,7 +5,13 @@ import { stepResultToMarkdown, STEP_HEADINGS } from "../agent-step-markdown";
 
 describe("STEP_HEADINGS", () => {
   it("has an entry for all five pipeline steps", () => {
-    for (const step of ["extraction", "rag_retrieval", "strategy", "drafting", "qa"]) {
+    for (const step of [
+      "extraction",
+      "rag_retrieval",
+      "strategy",
+      "drafting",
+      "qa",
+    ]) {
       expect(STEP_HEADINGS[step]).toBeDefined();
     }
   });
@@ -45,7 +51,9 @@ describe("stepResultToMarkdown — extraction", () => {
   };
 
   it("includes the Core facts heading", () => {
-    expect(stepResultToMarkdown("extraction", result)).toContain("### Core facts");
+    expect(stepResultToMarkdown("extraction", result)).toContain(
+      "### Core facts",
+    );
   });
 
   it("renders each fact as a bullet", () => {
@@ -62,7 +70,9 @@ describe("stepResultToMarkdown — extraction", () => {
   });
 
   it("includes the Chronological timeline heading", () => {
-    expect(stepResultToMarkdown("extraction", result)).toContain("### Chronological timeline");
+    expect(stepResultToMarkdown("extraction", result)).toContain(
+      "### Chronological timeline",
+    );
   });
 
   it("renders timeline date and event", () => {
@@ -72,14 +82,19 @@ describe("stepResultToMarkdown — extraction", () => {
   });
 
   it("handles empty core_facts gracefully", () => {
-    expect(stepResultToMarkdown("extraction", { ...result, core_facts: [] }))
-      .toContain("### Core facts");
+    expect(
+      stepResultToMarkdown("extraction", { ...result, core_facts: [] }),
+    ).toContain("### Core facts");
   });
 
   it("skips non-object entity entries without crashing", () => {
     const md = stepResultToMarkdown("extraction", {
       ...result,
-      entities: [null, "bad", { name: "Valid", type: "person", role: "claimant" }],
+      entities: [
+        null,
+        "bad",
+        { name: "Valid", type: "person", role: "claimant" },
+      ],
     });
     expect(md).toContain("Valid");
   });
@@ -89,11 +104,15 @@ describe("stepResultToMarkdown — extraction", () => {
 
 describe("stepResultToMarkdown — rag_retrieval", () => {
   it("shows 'No precedents' when chunks is empty", () => {
-    expect(stepResultToMarkdown("rag_retrieval", { chunks: [] })).toContain("No precedents");
+    expect(stepResultToMarkdown("rag_retrieval", { chunks: [] })).toContain(
+      "No precedents",
+    );
   });
 
   it("shows 'No precedents' when chunks key is missing", () => {
-    expect(stepResultToMarkdown("rag_retrieval", {})).toContain("No precedents");
+    expect(stepResultToMarkdown("rag_retrieval", {})).toContain(
+      "No precedents",
+    );
   });
 
   it("renders 'Retrieved excerpts' heading when chunks present", () => {
@@ -115,7 +134,9 @@ describe("stepResultToMarkdown — rag_retrieval", () => {
 
   it("renders the chunk text content", () => {
     const text = "Section 38 of the Land Act, 2012 — specific performance.";
-    expect(stepResultToMarkdown("rag_retrieval", { chunks: [text] })).toContain(text);
+    expect(stepResultToMarkdown("rag_retrieval", { chunks: [text] })).toContain(
+      text,
+    );
   });
 });
 
@@ -158,14 +179,14 @@ describe("stepResultToMarkdown — strategy", () => {
 
   it("renders legal reasoning text", () => {
     expect(stepResultToMarkdown("strategy", result)).toContain(
-      "The contract is valid under Kenyan law."
+      "The contract is valid under Kenyan law.",
     );
   });
 
   it("handles empty arguments array without crashing", () => {
-    expect(stepResultToMarkdown("strategy", { ...result, arguments: [] })).toContain(
-      "### Arguments"
-    );
+    expect(
+      stepResultToMarkdown("strategy", { ...result, arguments: [] }),
+    ).toContain("### Arguments");
   });
 });
 
@@ -196,7 +217,9 @@ describe("stepResultToMarkdown — drafting", () => {
   ].join("\n");
 
   it("returns the brief_markdown string unchanged", () => {
-    expect(stepResultToMarkdown("drafting", { brief_markdown: brief })).toBe(brief.trim());
+    expect(stepResultToMarkdown("drafting", { brief_markdown: brief })).toBe(
+      brief.trim(),
+    );
   });
 
   it("returns empty string when brief_markdown is empty", () => {
@@ -224,14 +247,22 @@ describe("stepResultToMarkdown — drafting", () => {
 // ── qa ────────────────────────────────────────────────────────────────────────
 
 describe("stepResultToMarkdown — qa", () => {
-  const base = { hallucination_warnings: [], missing_logic: [], risk_notes: [] };
+  const base = {
+    hallucination_warnings: [],
+    missing_logic: [],
+    risk_notes: [],
+  };
 
   it("renders LOW risk level", () => {
-    expect(stepResultToMarkdown("qa", { ...base, risk_level: "LOW" })).toContain("LOW");
+    expect(
+      stepResultToMarkdown("qa", { ...base, risk_level: "LOW" }),
+    ).toContain("LOW");
   });
 
   it("renders HIGH risk level", () => {
-    expect(stepResultToMarkdown("qa", { ...base, risk_level: "HIGH" })).toContain("HIGH");
+    expect(
+      stepResultToMarkdown("qa", { ...base, risk_level: "HIGH" }),
+    ).toContain("HIGH");
   });
 
   it("shows 'None noted' for all three lists when empty", () => {
