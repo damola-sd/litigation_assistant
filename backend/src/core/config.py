@@ -8,6 +8,11 @@ class Settings(BaseSettings):
     app_env: str = "development"
     log_level: str = "INFO"
     database_url: str = "sqlite+aiosqlite:///./litigation.db"
+    # Pinecone (RAG). Index must use dimension 1536 and metric cosine for text-embedding-3-small.
+    pinecone_api_key: str = ""
+    pinecone_index_name: str = ""
+    pinecone_index_host: str = ""
+    pinecone_namespace: str = ""
     openai_api_key: str = ""
     openrouter_api_key: str = ""
     model: str = "gpt-4o"
