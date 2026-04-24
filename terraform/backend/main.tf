@@ -41,6 +41,7 @@ resource "aws_secretsmanager_secret_version" "backend_secrets" {
   secret_id     = aws_secretsmanager_secret.backend_secrets.id
   secret_string = jsonencode({
     OPENAI_API_KEY       = var.openai_api_key
+    OPENROUTER_API_KEY   = var.openrouter_api_key
     MODEL                = var.openai_model
     CLERK_JWKS_URL       = var.clerk_jwks_url
     CLERK_ISSUER         = var.clerk_issuer
@@ -49,6 +50,9 @@ resource "aws_secretsmanager_secret_version" "backend_secrets" {
     PINECONE_INDEX_HOST  = var.pinecone_index_host
     PINECONE_INDEX_NAME  = var.pinecone_index_name
     PINECONE_NAMESPACE   = var.pinecone_namespace
+    LANGFUSE_PUBLIC_KEY  = var.langfuse_public_key
+    LANGFUSE_SECRET_KEY  = var.langfuse_secret_key
+    LANGFUSE_HOST        = var.langfuse_host
   })
 }
 
@@ -143,6 +147,7 @@ resource "aws_apprunner_service" "backend" {
         runtime_environment_secrets = {
           OPENAI_API_KEY           = "${aws_secretsmanager_secret.backend_secrets.arn}:OPENAI_API_KEY::"
           MODEL                    = "${aws_secretsmanager_secret.backend_secrets.arn}:MODEL::"
+          OPENROUTER_API_KEY       = "${aws_secretsmanager_secret.backend_secrets.arn}:OPENROUTER_API_KEY::"
           # Get DATABASE_URL from the 'db_url' key in the database secret
           DATABASE_URL             = "${data.aws_secretsmanager_secret.db_creds.arn}:db_url::"
           CLERK_JWKS_URL           = "${aws_secretsmanager_secret.backend_secrets.arn}:CLERK_JWKS_URL::"
@@ -152,6 +157,9 @@ resource "aws_apprunner_service" "backend" {
           PINECONE_INDEX_HOST      = "${aws_secretsmanager_secret.backend_secrets.arn}:PINECONE_INDEX_HOST::"
           PINECONE_INDEX_NAME      = "${aws_secretsmanager_secret.backend_secrets.arn}:PINECONE_INDEX_NAME::"
           PINECONE_NAMESPACE       = "${aws_secretsmanager_secret.backend_secrets.arn}:PINECONE_NAMESPACE::"
+          LANGFUSE_PUBLIC_KEY      = "${aws_secretsmanager_secret.backend_secrets.arn}:LANGFUSE_PUBLIC_KEY::"
+          LANGFUSE_SECRET_KEY      = "${aws_secretsmanager_secret.backend_secrets.arn}:LANGFUSE_SECRET_KEY::"
+          LANGFUSE_HOST            = "${aws_secretsmanager_secret.backend_secrets.arn}:LANGFUSE_HOST::"
         }
       }
     }

@@ -13,8 +13,9 @@
 5. [Database Schema](#5-database-schema)
 6. [AI Agent Pipeline](#6-ai-agent-pipeline)
 7. [Integration Guide](#7-integration-guide)
-8. [Environment Variables](#8-environment-variables)
-9. [Golden-case evals & GitHub Actions](#9-golden-case-evals--github-actions)
+8. [Observability (Langfuse)](#8-observability-langfuse)
+9. [Environment Variables](#9-environment-variables)
+10. [Golden-case evals & GitHub Actions](#10-golden-case-evals--github-actions)
 
 ---
 
@@ -35,7 +36,7 @@ Make sure `backend/.env` contains your OpenAI API key before starting the server
 OPENAI_API_KEY=sk-...
 ```
 
-Golden-case eval jobs in GitHub Actions are documented in **[§9](#9-golden-case-evals--github-actions)** (same content as **`docs/PROJECT_WALKTHROUGH.md`** §22).
+Golden-case eval jobs in GitHub Actions are documented in **[§10](#10-golden-case-evals--github-actions)** (same content as **`docs/PROJECT_WALKTHROUGH.md`** §22).
 
 Delete `backend/litigation.db` if you get a database error on first run — the schema may have changed.
 
@@ -429,7 +430,43 @@ The shipped client uses **`FormData`** + **`fetch`** + a **`ReadableStream`** re
 
 ---
 
-## 8. Environment Variables
+## 8. Observability (Langfuse)
+
+All LLM calls (chat completions and embeddings across all 5 agents and the RAG retriever) are instrumented with [Langfuse](https://langfuse.com) for tracing, token counting, cost tracking, and eval scoring.
+
+### How it works
+
+`src/core/openai_client.py` is the single client factory used by every agent. When Langfuse keys are present it swaps in `langfuse.openai.AsyncOpenAI` — a drop-in wrapper that intercepts every OpenAI call and ships a trace to Langfuse cloud. No changes are needed in agent code.
+
+Tracing is **opt-in**: if `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` are blank, the factory falls back to the plain `openai.AsyncOpenAI` client.
+
+### Setup
+
+**Local (dev):** add to `backend/.env`:
+
+```
+LANGFUSE_PUBLIC_KEY=pk-lf-...
+LANGFUSE_SECRET_KEY=sk-lf-...
+LANGFUSE_HOST=https://cloud.langfuse.com
+```
+
+**Production:** keys are stored in AWS Secrets Manager and injected into App Runner at runtime via `terraform/backend/main.tf`. Fill them in `terraform/backend/terraform.tfvars` and run `terraform apply`.
+
+Get your keys from the [Langfuse cloud dashboard](https://cloud.langfuse.com) → Project Settings → API Keys.
+
+### What you see in the dashboard
+
+| Signal | Details |
+|--------|---------|
+| Traces | One trace per pipeline run, with child spans per agent step |
+| Latency | Per-agent and end-to-end wall-clock time |
+| Token usage | Prompt + completion tokens per call |
+| Cost | Estimated USD cost per run |
+| Evals | LLM-as-judge scores can be attached via the Langfuse SDK or UI |
+
+---
+
+## 9. Environment Variables
 
 All read from `backend/.env`. Copy **`backend/.env.example`** as a starting point (it documents Clerk, providers, and CORS).
 
@@ -445,10 +482,13 @@ All read from `backend/.env`. Copy **`backend/.env.example`** as a starting poin
 | `APP_ENV` | No | `development` | `production` enables JSON structlog output |
 | `LOG_LEVEL` | No | `INFO` | Logging verbosity |
 | `AGENT_STEP_TIMEOUT_SECONDS` | No | `120` | Wall-clock timeout per agent step |
+| `LANGFUSE_PUBLIC_KEY` | No | `""` | Langfuse public key — enables LLM tracing when set |
+| `LANGFUSE_SECRET_KEY` | No | `""` | Langfuse secret key |
+| `LANGFUSE_HOST` | No | `https://cloud.langfuse.com` | Langfuse instance URL |
 
 ---
 
-## 9. Golden-case evals & GitHub Actions
+## 10. Golden-case evals & GitHub Actions
 
 **GitHub Actions (`evals.yml`):** On path-filtered pushes to **`main`**, **`eval_extraction`** runs against every row in **`backend/evals/golden_cases.json`** (**11** golden cases). The **`extraction-eval`** job uses **`continue-on-error: true`**, so the workflow does not block merges when the eval fails or **`OPENAI_API_KEY`** is missing—use the job log for pass/fail. To block merges on golden-case regression, add **`OPENAI_API_KEY`** as a repo secret and remove **`continue-on-error`**. **`eval_llm_judge`** runs only via **Actions → Evaluations → Run workflow** with the optional checkbox (~**$0.30+** per full run). See **`docs/PROJECT_WALKTHROUGH.md`** §22 for tables and rubric mapping.
 
