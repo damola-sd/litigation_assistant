@@ -7,9 +7,6 @@ import { LitigationPrepMark } from "@/components/litigation-prep-mark";
 
 const shell = "bg-[#1a222f] text-white";
 
-/** Matches `PlatformHeader` (`h-12`) so the rail fills the viewport below the global bar. */
-const belowPlatformChrome = "min-h-[calc(100svh-3rem)]";
-
 function IconHome({ className }: { className?: string }) {
   return (
     <svg
@@ -91,15 +88,18 @@ function NavRow({
   icon,
   label,
   active,
+  onNavigate,
 }: {
   href: string;
   icon: React.ReactNode;
   label: string;
   active: boolean;
+  onNavigate?: () => void;
 }) {
   return (
     <Link
       href={href}
+      onClick={() => onNavigate?.()}
       className={`flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition-colors ${
         active
           ? "bg-blue-600 text-white shadow-md ring-1 ring-blue-400/40"
@@ -114,7 +114,15 @@ function NavRow({
   );
 }
 
-export function AppSidebar() {
+export function AppSidebar({
+  id,
+  className = "",
+  onNavigate,
+}: {
+  id?: string;
+  className?: string;
+  onNavigate?: () => void;
+}) {
   const pathname = usePathname();
   const homeActive = pathname === "/dashboard" || pathname === "/dashboard/";
   const newScanActive = pathname === "/dashboard/new-scan";
@@ -122,15 +130,17 @@ export function AppSidebar() {
   const plansActive = pathname.startsWith("/subscriptions");
   return (
     <aside
-      className={`flex w-64 shrink-0 flex-col self-stretch overflow-y-auto border-r border-white/10 ${belowPlatformChrome} ${shell}`}
+      id={id}
+      className={`flex w-64 shrink-0 flex-col overflow-y-auto border-r border-white/10 md:min-h-[calc(100svh-3rem)] md:self-stretch ${shell} ${className}`}
     >
       <div className="border-b border-white/10 px-4 py-4">
         <Link
           href="/dashboard"
+          onClick={() => onNavigate?.()}
           className="flex items-center gap-3 rounded-lg outline-none ring-blue-400/60 transition-colors hover:bg-white/5 focus-visible:ring-2"
         >
           <LitigationPrepMark className="h-11 w-11 shrink-0" />
-          <div className="min-w-0">
+          <div className="hidden min-w-0 md:block">
             <p className="text-xs font-semibold uppercase tracking-wider text-white/50">
               Litigation Prep
             </p>
@@ -147,24 +157,28 @@ export function AppSidebar() {
           label="Home"
           icon={<IconHome className="h-5 w-5" />}
           active={homeActive}
+          onNavigate={onNavigate}
         />
         <NavRow
           href="/dashboard/new-scan"
           label="New Scan"
           icon={<IconScan className="h-5 w-5" />}
           active={newScanActive}
+          onNavigate={onNavigate}
         />
         <NavRow
           href="/dashboard/scans"
           label="Scans"
           icon={<IconList className="h-5 w-5" />}
           active={scansActive}
+          onNavigate={onNavigate}
         />
         <NavRow
           href="/subscriptions"
           label="Plans"
           icon={<IconPlans className="h-5 w-5" />}
           active={plansActive}
+          onNavigate={onNavigate}
         />
       </nav>
     </aside>
