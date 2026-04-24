@@ -41,7 +41,7 @@ Create a local env file if you need overrides (for example `.env.local` — keep
 | Route | Purpose |
 |-------|---------|
 | `/` | Public landing; signed-in users are sent to `/dashboard`. |
-| `/dashboard` | Authenticated home (overview + `HomeAppDetails`). |
+| `/dashboard` | Authenticated home (dashboard overview). |
 | `/dashboard/new-scan` | New case scan with streaming `POST /api/v1/analyze`. |
 | `/dashboard/scans` | Case list (`GET /api/v1/cases`). |
 | `/dashboard/scans/[id]` | Case detail with agent steps. |
