@@ -27,12 +27,15 @@ All three modules live under `terraform/` and are managed independently.
 
 There is a **circular dependency** between the backend and frontend:
 
-| Service  | Needs at deploy time | Source |
-|----------|----------------------|--------|
-| Backend  | `allowed_origins` (frontend URL) | Created after frontend deploy |
-| Frontend | `NEXT_PUBLIC_API_URL` (backend URL) | Created after backend deploy |
+
+| Service  | Needs at deploy time                | Source                        |
+| -------- | ----------------------------------- | ----------------------------- |
+| Backend  | `allowed_origins` (frontend URL)    | Created after frontend deploy |
+| Frontend | `NEXT_PUBLIC_API_URL` (backend URL) | Created after backend deploy  |
+
 
 **Resolution strategy:**
+
 1. Deploy backend first with a wildcard `allowed_origins = "*"` placeholder
 2. Get the backend URL → deploy frontend
 3. Get the frontend URL → update backend `allowed_origins` and re-apply
@@ -125,7 +128,7 @@ echo $BACKEND_ECR_URL
 
 ```bash
 # Authenticate Docker to ECR
-aws ecr get-login-password --region eu-west-1 \
+aws ecr get-login-password --region eu-west-2 \
   | docker login --username AWS --password-stdin $BACKEND_ECR_URL
 
 # Build for linux/amd64 (required for App Runner)
@@ -184,10 +187,10 @@ echo $FRONTEND_ECR_URL
 ```bash
 # Set build-time variables — BACKEND_URL already includes https://
 export NEXT_PUBLIC_API_URL=$BACKEND_URL
-export CLERK_PUBLISHABLE_KEY="pk_test_<your-clerk-publishable-key>"
+export CLERK_PUBLISHABLE_KEY="pk_test_c3VyZS1zcGFuaWVsLTgyLmNsZXJrLmFjY291bnRzLmRldiQ"
 
 # Authenticate Docker to ECR
-aws ecr get-login-password --region eu-west-1 \
+aws ecr get-login-password --region eu-west-2 \
   | docker login --username AWS --password-stdin $FRONTEND_ECR_URL
 
 # Build with build args
@@ -265,7 +268,7 @@ The script resolves `BACKEND_ECR_URL` from Terraform state automatically if it i
 
 The script resolves `FRONTEND_ECR_URL` and `NEXT_PUBLIC_API_URL` from Terraform state automatically. `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` is read from `frontend/.env.local` if not already exported.
 
-> **Note:** The frontend image bakes `NEXT_PUBLIC_*` values at build time. Rebuild whenever `NEXT_PUBLIC_API_URL` or `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` changes.
+> **Note:** The frontend image bakes `NEXT_PUBLIC_`* values at build time. Rebuild whenever `NEXT_PUBLIC_API_URL` or `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` changes.
 
 ### Manual steps (if needed without the scripts)
 
@@ -324,12 +327,15 @@ terraform destroy
 
 ## Quick Reference
 
-| Command | Purpose |
-|---------|---------|
-| `terraform init` | Download providers (run once per module) |
-| `terraform plan` | Preview changes without applying |
-| `terraform apply` | Create/update infrastructure |
-| `terraform apply -target=aws_ecr_repository.backend` | Create only the ECR repo |
-| `terraform output -raw ecr_repository_url` | Get ECR push URL |
-| `terraform output -raw app_runner_url` | Get deployed service URL |
-| `terraform destroy` | Tear down all resources in a module |
+
+| Command                                              | Purpose                                  |
+| ---------------------------------------------------- | ---------------------------------------- |
+| `terraform init`                                     | Download providers (run once per module) |
+| `terraform plan`                                     | Preview changes without applying         |
+| `terraform apply`                                    | Create/update infrastructure             |
+| `terraform apply -target=aws_ecr_repository.backend` | Create only the ECR repo                 |
+| `terraform output -raw ecr_repository_url`           | Get ECR push URL                         |
+| `terraform output -raw app_runner_url`               | Get deployed service URL                 |
+| `terraform destroy`                                  | Tear down all resources in a module      |
+
+
